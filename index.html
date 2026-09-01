@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collection Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     COLLECTION HUB — Interfaz conectada a Google Apps Script
+     Los datos se piden en vivo a APPS_SCRIPT_URL (ver <script> abajo).
+     ============================================================ */
+
+  :root{
+    --bg:#121212;
+    --surface:#1E1E1E;
+    --border:#2C2C2C;
+    --text:#F2F1EC;
+    --text-dim:#8C8C86;
+    --text-faint:#5B5B57;
+    --accent:#D4AF37;
+    --radius:14px;
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+
+  ::selection{ background:var(--accent); color:#121212; }
+
+  h1,h2,h3,.display{
+    font-family:'Inter Tight', sans-serif;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    line-height:1.05;
+  }
+
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  img{ display:block; max-width:100%; }
+
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+    html{ scroll-behavior:auto; }
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    position:sticky; top:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 32px;
+    background:rgba(18,18,18,0.82);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border);
+  }
+  .logo{
+    font-family:'Inter Tight', sans-serif; font-weight:700; font-size:1.05rem;
+    letter-spacing:-0.01em; display:flex; align-items:center; gap:8px;
+  }
+  .logo-mark{
+    width:9px; height:9px; border-radius:50%;
+    background:linear-gradient(135deg,#D4AF37,#4F8EF7 50%,#FF6B35);
+    flex-shrink:0;
+  }
+  nav.primary-nav{ display:flex; gap:34px; font-size:0.88rem; color:var(--text-dim); }
+  nav.primary-nav a{ transition:color .2s var(--ease); position:relative; }
+  nav.primary-nav a:hover{ color:var(--text); }
+
+  .header-right{ display:flex; align-items:center; gap:14px; }
+
+  .search-wrap{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:20px; padding:7px 14px;
+    transition:border-color .2s var(--ease);
+  }
+  .search-wrap:focus-within{ border-color:var(--text-faint); }
+  .search-wrap input{
+    background:none; border:none; color:var(--text);
+    font-size:0.85rem; width:140px; outline:none;
+  }
+  .search-wrap input::placeholder{ color:var(--text-faint); }
+  .search-wrap svg{ width:14px; height:14px; stroke:var(--text-dim); flex-shrink:0; }
+
+  @media (max-width: 860px){
+    nav.primary-nav{ display:none; }
+    .search-wrap input{ width:90px; }
+    header{ padding:14px 18px; }
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    min-height:78vh; display:flex; flex-direction:column; justify-content:center;
+    padding:0 32px; max-width:780px;
+    opacity:0; transform:translateY(14px);
+    animation:heroIn .9s var(--ease) 0.15s forwards;
+  }
+  @keyframes heroIn{ to{ opacity:1; transform:translateY(0); } }
+
+  .hero-eyebrow{ font-size:0.8rem; color:var(--text-dim); margin-bottom:18px; }
+  .hero h1{ font-size:clamp(2.4rem, 6vw, 4.6rem); max-width:11ch; }
+  .hero p{ margin-top:22px; max-width:46ch; font-size:1.05rem; color:var(--text-dim); }
+  .hero-stats{ display:flex; gap:36px; margin-top:44px; }
+  .hero-stat b{ display:block; font-family:'Inter Tight'; font-size:1.6rem; font-weight:600; }
+  .hero-stat span{ font-size:0.78rem; color:var(--text-dim); }
+
+  /* ---------- SECCIÓN DE COLECCIÓN ---------- */
+  .collection-section{
+    padding:100px 32px 84px; border-top:1px solid var(--border);
+    position:relative; overflow:hidden;
+  }
+  .collection-section::before{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(680px 420px at 8% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+    pointer-events:none;
+  }
+  .collection-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:24px; margin-bottom:48px; position:relative; z-index:1;
+  }
+  .collection-head-left{ max-width:560px; }
+  .collection-kicker{
+    display:flex; align-items:center; gap:8px;
+    font-size:0.78rem; color:var(--accent); margin-bottom:14px; font-weight:500;
+  }
+  .collection-kicker .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .collection-head h2{ font-size:clamp(1.8rem, 3.4vw, 2.6rem); }
+  .collection-head p{ color:var(--text-dim); margin-top:12px; font-size:0.96rem; max-width:52ch; }
+  .collection-count{ text-align:right; flex-shrink:0; font-size:0.78rem; color:var(--text-dim); }
+  .collection-count b{ display:block; font-family:'Inter Tight'; font-size:2.2rem; font-weight:600; color:var(--text); }
+
+  /* ---------- VITRINA (colección con slots) ---------- */
+  .vitrine{
+    display:flex; gap:18px; overflow-x:auto; padding-bottom:10px;
+    scroll-snap-type:x proximity; position:relative; z-index:1;
+  }
+  .vitrine::-webkit-scrollbar{ height:5px; }
+  .vitrine::-webkit-scrollbar-thumb{ background:var(--border); border-radius:10px; }
+
+  .slot-card{
+    flex:0 0 240px; scroll-snap-align:start;
+    border:1px solid var(--border); background:var(--surface);
+    border-radius:var(--radius); overflow:hidden;
+    transition:transform .25s var(--ease), border-color .25s var(--ease);
+  }
+  .slot-card:hover{ transform:translateY(-4px); border-color:color-mix(in srgb, var(--accent) 40%, var(--border)); }
+
+  .slot-card .plate{
+    aspect-ratio:1/1.05; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(140% 120% at 20% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%), #171717;
+    position:relative; overflow:hidden;
+  }
+  .slot-card .plate svg{
+    width:38%; height:38%; stroke:color-mix(in srgb, var(--accent) 70%, white 10%);
+    fill:none; stroke-width:1.1; transition:transform .35s var(--ease);
+  }
+  .slot-card .plate img{
+    width:100%; height:100%; object-fit:cover; transition:transform .35s var(--ease);
+  }
+  .slot-card:hover .plate svg,
+  .slot-card:hover .plate img{ transform:scale(1.08); }
+
+  .slot-card.empty .plate{ background:#161616; }
+  .slot-card.empty .plate svg{ stroke:var(--text-faint); opacity:0.55; }
+
+  .status-pill{
+    position:absolute; top:10px; right:10px;
+    font-size:0.65rem; padding:4px 9px; border-radius:20px;
+    background:rgba(18,18,18,0.78); border:1px solid var(--border); color:var(--text-dim);
+    backdrop-filter:blur(4px); z-index:2;
+  }
+  .status-pill.owned{ color:#8FD19E; border-color:#2C4A32; }
+  .status-pill.wishlist{ color:#E0C170; border-color:#4A3F22; }
+
+  .slot-card .info{ padding:14px 15px 16px; }
+  .slot-card .slot-name{ font-size:0.7rem; color:var(--accent); margin-bottom:6px; font-weight:500; }
+  .slot-card .item-name{ font-size:0.98rem; font-weight:500; }
+  .slot-card .item-brand{ font-size:0.8rem; color:var(--text-dim); margin-top:2px; }
+  .slot-card.empty .item-name{ color:var(--text-faint); font-weight:400; }
+
+  /* ---------- GRID DIRECTO (colección sin slots) ---------- */
+  .chip-bar{ display:flex; align-items:center; gap:10px; margin-bottom:28px; flex-wrap:wrap; position:relative; z-index:1; }
+  .chip{
+    font-size:0.82rem; padding:7px 15px; border-radius:20px;
+    border:1px solid var(--border); color:var(--text-dim);
+    transition:all .2s var(--ease); background:transparent;
+  }
+  .chip:hover{ border-color:var(--text-faint); color:var(--text); }
+  .chip.active{ background:var(--accent); color:#121212; border-color:var(--accent); font-weight:500; }
+  .sort-btn{
+    margin-left:auto; display:flex; align-items:center; gap:6px;
+    font-size:0.82rem; color:var(--text-dim); padding:7px 13px; border:1px solid var(--border); border-radius:20px;
+  }
+  .sort-btn:hover{ color:var(--text); border-color:var(--text-faint); }
+  .sort-btn svg{ width:12px; height:12px; }
+
+  .item-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:18px; position:relative; z-index:1; }
+  .item-card{
+    border:1px solid var(--border); background:var(--surface);
+    border-radius:var(--radius); overflow:hidden;
+    transition:transform .25s var(--ease), border-color .25s var(--ease);
+  }
+  .item-card:hover{ transform:translateY(-4px); border-color:color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .item-card .plate{
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(140% 120% at 20% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%), #171717;
+    position:relative; overflow:hidden;
+  }
+  .item-card .plate svg{
+    width:34%; height:34%; stroke:color-mix(in srgb, var(--accent) 70%, white 10%);
+    fill:none; stroke-width:1.1; transition:transform .35s var(--ease);
+  }
+  .item-card .plate img{ width:100%; height:100%; object-fit:cover; transition:transform .35s var(--ease); }
+  .item-card:hover .plate svg,
+  .item-card:hover .plate img{ transform:scale(1.08); }
+  .item-card .info{ padding:13px 14px 15px; }
+  .item-card .item-name{ font-size:0.94rem; font-weight:500; }
+  .item-card .item-meta{ font-size:0.78rem; color:var(--text-dim); margin-top:3px; }
+
+  /* Estado vacío de colección */
+  .empty-collection{
+    position:relative; z-index:1; border:1px solid var(--border); border-radius:var(--radius);
+    padding:56px 32px; text-align:center; background:var(--surface);
+  }
+  .empty-collection p.lead{ font-size:1.02rem; margin-bottom:6px; }
+  .empty-collection p.sub{ font-size:0.88rem; color:var(--text-dim); }
+
+  /* ---------- BIBLIOTECA ---------- */
+  .library{ padding:100px 32px 120px; border-top:1px solid var(--border); }
+  .library-head{ max-width:560px; margin-bottom:36px; }
+  .library-head h2{ font-size:clamp(1.8rem, 3.4vw, 2.6rem); }
+  .library-head p{ color:var(--text-dim); margin-top:12px; font-size:0.96rem; }
+
+  .filter-bar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    margin-bottom:32px; padding-bottom:24px; border-bottom:1px solid var(--border);
+  }
+  .filter-bar select{
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    font-size:0.82rem; padding:8px 12px; border-radius:9px; font-family:inherit;
+  }
+  .filter-bar select:hover{ border-color:var(--text-faint); }
+  .result-count{ margin-left:auto; font-size:0.8rem; color:var(--text-dim); }
+
+  .masonry{ columns:4 220px; column-gap:18px; }
+  .masonry .item-card{ break-inside:avoid; margin-bottom:18px; display:block; }
+  @media (max-width:680px){ .masonry{ columns:2 160px; } }
+
+  .no-results{ text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.92rem; }
+
+  /* ---------- ESTADOS DE CARGA / ERROR ---------- */
+  .loading-state, .error-state{
+    padding:80px 20px; text-align:center; color:var(--text-dim); font-size:0.92rem;
+  }
+  .error-state button{
+    margin-top:16px; font-size:0.85rem; color:var(--accent);
+    border:1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+    padding:9px 18px; border-radius:20px;
+  }
+  .error-state button:hover{ background:color-mix(in srgb, var(--accent) 10%, transparent); }
+  .pulse{ animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
+
+  /* ---------- FOOTER ---------- */
+  footer{
+    padding:40px 32px; border-top:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:0.8rem; color:var(--text-faint); flex-wrap:wrap; gap:12px;
+  }
+
+  .toast{
+    position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    padding:12px 20px; border-radius:10px; font-size:0.85rem;
+    opacity:0; pointer-events:none; transition:all .3s var(--ease); z-index:300;
+    max-width:80vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="logo-mark"></span>Collection Hub</div>
+  <nav class="primary-nav">
+    <a href="#inicio">Inicio</a>
+    <a href="#colecciones-anchor" id="nav-colecciones">Colecciones</a>
+    <a href="#biblioteca">Biblioteca</a>
+  </nav>
+  <div class="header-right">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" fill="none" stroke-width="2"/><line x1="21" y1="21" x2="16.6" y2="16.6" stroke="currentColor" stroke-width="2"/></svg>
+      <input type="text" id="global-search" placeholder="Buscar pieza…">
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="inicio">
+  <div class="hero-eyebrow">Tu galería personal</div>
+  <h1>Cada pieza, en su lugar. Cada colección, su propia sala.</h1>
+  <p>Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés equipado y lo que estás esperando conseguir, colección por colección.</p>
+  <div class="hero-stats" id="hero-stats">
+    <div class="hero-stat pulse"><b>—</b><span>Cargando…</span></div>
+  </div>
+</section>
+
+<div id="colecciones-anchor"></div>
+<main id="collections-container">
+  <div class="loading-state pulse">Cargando tu colección…</div>
+</main>
+
+<section class="library" id="biblioteca">
+  <div class="library-head">
+    <h2>Biblioteca general</h2>
+    <p>Todo lo registrado, en un solo lugar. Filtrá por colección, estado, marca o subcategoría.</p>
+  </div>
+
+  <div class="filter-bar">
+    <select id="filter-coleccion"><option value="">Colección</option></select>
+    <select id="filter-estado">
+      <option value="">Estado</option>
+      <option value="Comprado">Comprado</option>
+      <option value="En Wishlist">En Wishlist</option>
+    </select>
+    <select id="filter-marca"><option value="">Marca</option></select>
+    <select id="filter-subcategoria"><option value="">Subcategoría</option></select>
+    <span class="result-count" id="result-count"></span>
+  </div>
+
+  <div class="masonry" id="masonry-grid"></div>
+</section>
+
+<footer>
+  <span>Collection Hub</span>
+  <span id="footer-status">Conectando con la base de datos…</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONEXIÓN CON GOOGLE APPS SCRIPT
+   Pegá acá la URL de tu Web App (Implementar > Nueva implementación
+   > Aplicación web > acceso "Cualquier usuario"). Tiene que devolver
+   un JSON con la forma { configuracion, colecciones, slots, items }.
+   ============================================================ */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTOdICTMOUTvTepfVY1tIICK_zz7WFtVBz2m4wjLabw36RsnH21b4GV6PMNnuvBlus_Q/exec'; // TODO: reemplazar por tu URL real
+
+let DATA = { configuracion: [], colecciones: [], slots: [], items: [] };
+
+/* ---------- Íconos por tipo de colección (placeholder cuando no hay foto) ---------- */
+const ICONS = {
+  watch: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 1.5"/><path d="M9 2h6M9 22h6"/></svg>',
+  shoe: '<svg viewBox="0 0 24 24"><path d="M3 17c0-2 1.5-3 3-4l4-3c1-1 2-1 3-1l5 2c2 1 3 2 3 4v2c0 1-1 2-2 2H4c-1 0-1-1-1-2z"/><path d="M3 17h18"/></svg>',
+  jersey: '<svg viewBox="0 0 24 24"><path d="M8 3 4 6l1 4h2v11h10V10h2l1-4-4-3-2 2h-4z"/></svg>',
+  default: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>'
+};
+
+const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => [...ctx.querySelectorAll(sel)];
+
+function iconFor(nombreIcono){ return ICONS[nombreIcono] || ICONS.default; }
+
+function escapeHTML(str=''){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Conversión de links de Google Drive a formato directo ---------- */
+function convertDriveUrl(url){
+  if(!url) return '';
+  url = String(url).trim();
+  if(!url) return '';
+
+  // Ya viene en el formato directo que necesitamos
+  if(/drive\.google\.com\/uc\?/.test(url) && /[?&]id=/.test(url)) return url;
+
+  // Si no parece ser de Drive ni un ID suelto, se devuelve tal cual
+  // (puede ser una URL de imagen de cualquier otro origen)
+  const looksLikeBareId = /^[a-zA-Z0-9_-]{20,}$/.test(url);
+  if(!/drive\.google\.com/.test(url) && !looksLikeBareId) return url;
+
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,  // .../file/d/ID/view
+    /[?&]id=([a-zA-Z0-9_-]+)/,      // ...?id=ID  ó  open?id=ID
+    /\/d\/([a-zA-Z0-9_-]+)/         // patrón genérico /d/ID
+  ];
+
+  let fileId = '';
+  for(const p of patterns){
+    const m = url.match(p);
+    if(m){ fileId = m[1]; break; }
+  }
+  if(!fileId && looksLikeBareId) fileId = url;
+
+  return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
+}
+
+/* ---------- Visual de una pieza: foto real o ícono de respaldo ---------- */
+function itemVisualHTML(coleccion, item){
+  const rawUrl = item && item.URL_Imagen ? item.URL_Imagen : '';
+  const imgUrl = convertDriveUrl(rawUrl);
+  const fallbackIcon = iconFor(coleccion?.Icono);
+  if(!imgUrl) return fallbackIcon;
+  return `<img src="${imgUrl}" alt="${escapeHTML(item.Nombre)}" loading="lazy" onerror="this.outerHTML = ${JSON.stringify(fallbackIcon)};">`;
+}
+
+/* ---------- Construcción de tarjeta de ítem ---------- */
+function itemCardHTML(item, opts={}){
+  const estadoClass = item.Estado === 'Comprado' ? 'owned' : 'wishlist';
+  const col = DATA.colecciones.find(c => c.ID_Coleccion === item.ID_Coleccion);
+  return `
+    <div class="item-card" style="--accent:${col?.Color || '#D4AF37'}">
+      <div class="plate">
+        <span class="status-pill ${estadoClass}">${item.Estado}</span>
+        ${itemVisualHTML(col, item)}
+      </div>
+      <div class="info">
+        <div class="item-name">${escapeHTML(item.Nombre)}</div>
+        <div class="item-meta">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${opts.showCollection ? ' · ' + escapeHTML(col?.Nombre_Coleccion || '') : ''}</div>
+      </div>
+    </div>`;
+}
+
+/* ---------- Sección con vitrina de slots ---------- */
+function vitrineHTML(coleccion, slotsDeColeccion, itemsDeColeccion){
+  const cards = slotsDeColeccion.map(slot => {
+    const item = itemsDeColeccion.find(i => i.ID_Slot_Asignado === slot.ID_Slot);
+    if(!item){
+      return `
+        <div class="slot-card empty">
+          <div class="plate">${iconFor(coleccion.Icono)}</div>
+          <div class="info">
+            <div class="slot-name">${escapeHTML(slot.Nombre_Slot)}</div>
+            <div class="item-name">Sin equipar</div>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="slot-card">
+        <div class="plate">
+          <span class="status-pill owned">Comprado</span>
+          ${itemVisualHTML(coleccion, item)}
+        </div>
+        <div class="info">
+          <div class="slot-name">${escapeHTML(slot.Nombre_Slot)}</div>
+          <div class="item-name">${escapeHTML(item.Nombre)}</div>
+          <div class="item-brand">${escapeHTML(item.Marca)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="vitrine">${cards}</div>`;
+}
+
+/* ---------- Sección grid directo (sin slots), con chips ---------- */
+function gridSectionHTML(coleccion, itemsDeColeccion){
+  const subcats = [...new Set(itemsDeColeccion.map(i => i.Subcategoria))];
+  const chips = ['Todas', ...subcats].map((s,idx) =>
+    `<button class="chip ${idx===0?'active':''}" data-filter="${s==='Todas'?'':escapeHTML(s)}">${escapeHTML(s)}</button>`
+  ).join('');
+
+  return `
+    <div class="chip-bar">
+      ${chips}
+      <button class="sort-btn">
+        Ordenar
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+      </button>
+    </div>
+    <div class="item-grid">
+      ${itemsDeColeccion.map(i => itemCardHTML(i)).join('')}
+    </div>`;
+}
+
+/* ---------- Estado vacío de una colección sin ítems ---------- */
+function emptyCollectionHTML(){
+  return `
+    <div class="empty-collection">
+      <p class="lead">Todavía no hay piezas acá.</p>
+      <p class="sub">Cuando cargues la primera fila en la Sheet, va a aparecer en esta sala.</p>
+    </div>`;
+}
+
+/* ---------- Render de todas las colecciones ---------- */
+function renderCollections(){
+  const container = $('#collections-container');
+  const activas = DATA.colecciones.filter(c => c.Activa === 'SI');
+
+  if(activas.length === 0){
+    container.innerHTML = `<div class="loading-state">Todavía no hay colecciones cargadas en la Sheet.</div>`;
+    return;
+  }
+
+  const html = activas.map(col => {
+    const itemsDeColeccion = DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion);
+    const slotsDeColeccion = DATA.slots
+      .filter(s => s.ID_Coleccion === col.ID_Coleccion)
+      .sort((a,b) => a.Orden - b.Orden);
+
+    let body;
+    if(itemsDeColeccion.length === 0){
+      body = emptyCollectionHTML();
+    } else if(slotsDeColeccion.length > 0){
+      body = vitrineHTML(col, slotsDeColeccion, itemsDeColeccion);
+    } else {
+      body = gridSectionHTML(col, itemsDeColeccion);
+    }
+
+    return `
+      <section class="collection-section" id="col-${col.ID_Coleccion}" style="--accent:${col.Color}">
+        <div class="collection-head">
+          <div class="collection-head-left">
+            <div class="collection-kicker"><span class="dot"></span>Colección</div>
+            <h2>${escapeHTML(col.Nombre_Coleccion)}</h2>
+            <p>${escapeHTML(col.Descripcion)}</p>
+          </div>
+          <div class="collection-count">
+            <b>${itemsDeColeccion.length}</b>
+            pieza${itemsDeColeccion.length === 1 ? '' : 's'}
+          </div>
+        </div>
+        ${body}
+      </section>`;
+  }).join('');
+  container.innerHTML = html;
+
+  // Chips de filtro dentro de cada colección sin slots
+  $$('.collection-section').forEach(section => {
+    const chips = $$('.chip', section);
+    if(!chips.length) return;
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const filter = chip.dataset.filter;
+        $$('.item-card', section).forEach(card => {
+          const meta = card.querySelector('.item-meta').textContent;
+          card.style.display = (!filter || meta.includes(filter)) ? '' : 'none';
+        });
+      });
+    });
+  });
+}
+
+/* ---------- Stats del hero ---------- */
+function renderHeroStats(){
+  const total = DATA.items.length;
+  const comprados = DATA.items.filter(i => i.Estado === 'Comprado').length;
+  const wishlist = total - comprados;
+  const activas = DATA.colecciones.filter(c => c.Activa === 'SI').length;
+  $('#hero-stats').innerHTML = `
+    <div class="hero-stat"><b>${activas}</b><span>Colecciones</span></div>
+    <div class="hero-stat"><b>${comprados}</b><span>Piezas adquiridas</span></div>
+    <div class="hero-stat"><b>${wishlist}</b><span>En wishlist</span></div>
+  `;
+}
+
+/* ---------- Biblioteca (masonry + filtros) ---------- */
+function populateFilterOptions(){
+  const colSel = $('#filter-coleccion');
+  DATA.colecciones.forEach(c => {
+    colSel.insertAdjacentHTML('beforeend', `<option value="${c.ID_Coleccion}">${escapeHTML(c.Nombre_Coleccion)}</option>`);
+  });
+  const marcaSel = $('#filter-marca');
+  [...new Set(DATA.items.map(i => i.Marca))].forEach(m => {
+    marcaSel.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`);
+  });
+  const subSel = $('#filter-subcategoria');
+  [...new Set(DATA.items.map(i => i.Subcategoria))].forEach(s => {
+    subSel.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`);
+  });
+}
+
+let searchQuery = '';
+
+function renderLibrary(){
+  const colF = $('#filter-coleccion').value;
+  const estadoF = $('#filter-estado').value;
+  const marcaF = $('#filter-marca').value;
+  const subF = $('#filter-subcategoria').value;
+
+  const filtered = DATA.items.filter(i => {
+    if(colF && i.ID_Coleccion !== colF) return false;
+    if(estadoF && i.Estado !== estadoF) return false;
+    if(marcaF && i.Marca !== marcaF) return false;
+    if(subF && i.Subcategoria !== subF) return false;
+    if(searchQuery && !(`${i.Nombre} ${i.Marca}`.toLowerCase().includes(searchQuery))) return false;
+    return true;
+  });
+
+  const grid = $('#masonry-grid');
+  grid.innerHTML = filtered.length
+    ? filtered.map(i => itemCardHTML(i, {showCollection:true})).join('')
+    : `<div class="no-results">Ninguna pieza coincide con estos filtros.</div>`;
+
+  $('#result-count').textContent = `${filtered.length} pieza${filtered.length===1?'':'s'}`;
+}
+
+function showToast(msg){
+  const toast = $('#toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+/* ---------- Búsqueda del header ---------- */
+function setupSearch(){
+  $('#global-search').addEventListener('keydown', e => {
+    if(e.key === 'Enter'){
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderLibrary();
+      $('#biblioteca').scrollIntoView({behavior:'smooth'});
+    }
+  });
+}
+
+/* ---------- Carga de datos desde Apps Script ---------- */
+async function fetchData(){
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
+    throw new Error('Falta configurar APPS_SCRIPT_URL en el código con la URL real de tu Web App.');
+  }
+  const res = await fetch(APPS_SCRIPT_URL);
+  if(!res.ok) throw new Error(`El servidor respondió con estado ${res.status}.`);
+  const json = await res.json();
+  // Validación mínima de forma, para no romper el render si falta algo
+  return {
+    configuracion: json.configuracion || [],
+    colecciones: json.colecciones || [],
+    slots: json.slots || [],
+    items: json.items || []
+  };
+}
+
+function renderErrorState(message){
+  $('#collections-container').innerHTML = `
+    <div class="error-state">
+      <p>No se pudo cargar la colección.</p>
+      <p style="margin-top:6px; font-size:0.82rem;">${escapeHTML(message)}</p>
+      <button id="retry-fetch">Reintentar</button>
+    </div>`;
+  $('#footer-status').textContent = 'Sin conexión con la base de datos';
+  $('#retry-fetch').addEventListener('click', boot);
+}
+
+/* ---------- Init ---------- */
+async function boot(){
+  $('#collections-container').innerHTML = `<div class="loading-state pulse">Cargando tu colección…</div>`;
+  try{
+    DATA = await fetchData();
+    renderHeroStats();
+    renderCollections();
+    populateFilterOptions();
+    renderLibrary();
+    $('#footer-status').textContent = 'Conectado a Google Sheets';
+  }catch(err){
+    console.error(err);
+    renderErrorState(err.message || 'Error desconocido al conectar con Apps Script.');
+    showToast('No se pudo conectar con la base de datos.');
+  }
+}
+
+function init(){
+  setupSearch();
+  $$('#filter-coleccion, #filter-estado, #filter-marca, #filter-subcategoria')
+    .forEach(sel => sel.addEventListener('change', renderLibrary));
+  boot();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
