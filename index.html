@@ -378,6 +378,25 @@ function escapeHTML(str=''){
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* Normaliza un valor para comparar: recorta espacios/saltos de línea
+   invisibles y pasa a minúsculas, para que "COL_1", " col_1 " o
+   "col_1\r\n" se consideren el mismo valor. */
+function normalizeKey(v){
+  return String(v ?? '').trim().toLowerCase();
+}
+
+/* Encuentra la colección de un ítem tolerando que la Sheet guarde el
+   ID_Coleccion (ej. "COL_1") o directamente el nombre (ej. "Relojes"),
+   con espacios o mayúsculas distintas. Evita que un desajuste de texto
+   en la Sheet deje ítems "huérfanos" que no matchean ningún filtro. */
+function coleccionDeItem(item){
+  const key = normalizeKey(item?.ID_Coleccion);
+  if(!key) return undefined;
+  return DATA.colecciones.find(c =>
+    normalizeKey(c.ID_Coleccion) === key || normalizeKey(c.Nombre_Coleccion) === key
+  );
+}
+
 /* ---------- Conversión de links de Google Drive a formato directo ---------- */
 function convertDriveUrl(url){
   if(!url) return '';
@@ -420,7 +439,7 @@ function itemVisualHTML(coleccion, item){
 /* ---------- Construcción de tarjeta de ítem ---------- */
 function itemCardHTML(item, opts={}){
   const estadoClass = item.Estado === 'Comprado' ? 'owned' : 'wishlist';
-  const col = DATA.colecciones.find(c => c.ID_Coleccion === item.ID_Coleccion);
+  const col = coleccionDeItem(item);
   return `
     <div class="item-card" style="--accent:${col?.Color || '#D4AF37'}">
       <div class="plate">
@@ -504,7 +523,7 @@ function renderCollections(){
   }
 
   const html = activas.map(col => {
-    const itemsDeColeccion = DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion);
+    const itemsDeColeccion = DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion);
     const slotsDeColeccion = DATA.slots
       .filter(s => s.ID_Coleccion === col.ID_Coleccion)
       .sort((a,b) => a.Orden - b.Orden);
@@ -582,7 +601,7 @@ function populateFilterOptions(){
    (ej. "Automático" de Relojes cuando se filtra por Camisetas). */
 function updateDependentFilterOptions(){
   const colF = $('#filter-coleccion').value;
-  const relevantItems = colF ? DATA.items.filter(i => i.ID_Coleccion === colF) : DATA.items;
+  const relevantItems = colF ? DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === colF) : DATA.items;
 
   const marcaSel = $('#filter-marca');
   const subSel = $('#filter-subcategoria');
@@ -612,7 +631,7 @@ function renderLibrary(){
   const subF = $('#filter-subcategoria').value;
 
   const filtered = DATA.items.filter(i => {
-    if(colF && i.ID_Coleccion !== colF) return false;
+    if(colF && coleccionDeItem(i)?.ID_Coleccion !== colF) return false;
     if(estadoF && i.Estado !== estadoF) return false;
     if(marcaF && i.Marca !== marcaF) return false;
     if(subF && i.Subcategoria !== subF) return false;
@@ -646,6 +665,21 @@ function setupSearch(){
   });
 }
 
+/* Recorre el JSON recibido y recorta espacios/saltos de línea invisibles
+   de todos los textos (ej. "COL_1\r\n" -> "COL_1"). Evita que un dato mal
+   copiado en la Sheet rompa comparaciones exactas en cualquier parte del
+   código (Estado, ID_Slot_Asignado, ID_Coleccion, etc.). */
+function deepTrim(value){
+  if(typeof value === 'string') return value.trim();
+  if(Array.isArray(value)) return value.map(deepTrim);
+  if(value && typeof value === 'object'){
+    const out = {};
+    for(const k in value) out[k] = deepTrim(value[k]);
+    return out;
+  }
+  return value;
+}
+
 /* ---------- Carga de datos desde Apps Script ---------- */
 async function fetchData(){
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
@@ -653,7 +687,7 @@ async function fetchData(){
   }
   const res = await fetch(APPS_SCRIPT_URL);
   if(!res.ok) throw new Error(`El servidor respondió con estado ${res.status}.`);
-  const json = await res.json();
+  const json = deepTrim(await res.json());
   // Validación mínima de forma, para no romper el render si falta algo
   return {
     configuracion: json.configuracion || [],
