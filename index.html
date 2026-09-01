@@ -573,14 +573,34 @@ function populateFilterOptions(){
   DATA.colecciones.forEach(c => {
     colSel.insertAdjacentHTML('beforeend', `<option value="${c.ID_Coleccion}">${escapeHTML(c.Nombre_Coleccion)}</option>`);
   });
+  // Marca y Subcategoría se calculan según la colección elegida (ver updateDependentFilterOptions)
+  updateDependentFilterOptions();
+}
+
+/* Recalcula las opciones de Marca y Subcategoría en base a la colección
+   seleccionada, para que no aparezcan subcategorías de otras colecciones
+   (ej. "Automático" de Relojes cuando se filtra por Camisetas). */
+function updateDependentFilterOptions(){
+  const colF = $('#filter-coleccion').value;
+  const relevantItems = colF ? DATA.items.filter(i => i.ID_Coleccion === colF) : DATA.items;
+
   const marcaSel = $('#filter-marca');
-  [...new Set(DATA.items.map(i => i.Marca))].forEach(m => {
-    marcaSel.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`);
-  });
   const subSel = $('#filter-subcategoria');
-  [...new Set(DATA.items.map(i => i.Subcategoria))].forEach(s => {
-    subSel.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`);
-  });
+  const marcaPrevia = marcaSel.value;
+  const subPrevia = subSel.value;
+
+  const marcas = [...new Set(relevantItems.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
+  const subcats = [...new Set(relevantItems.map(i => i.Subcategoria))].sort((a,b) => a.localeCompare(b));
+
+  marcaSel.innerHTML = '<option value="">Marca</option>' +
+    marcas.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+  subSel.innerHTML = '<option value="">Subcategoría</option>' +
+    subcats.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
+
+  // Si el valor que tenía elegido el usuario sigue siendo válido para la
+  // colección actual, se lo dejamos puesto en vez de resetearlo.
+  if(marcas.includes(marcaPrevia)) marcaSel.value = marcaPrevia;
+  if(subcats.includes(subPrevia)) subSel.value = subPrevia;
 }
 
 let searchQuery = '';
@@ -673,8 +693,14 @@ async function boot(){
 
 function init(){
   setupSearch();
-  $$('#filter-coleccion, #filter-estado, #filter-marca, #filter-subcategoria')
+
+  $('#filter-coleccion').addEventListener('change', () => {
+    updateDependentFilterOptions();
+    renderLibrary();
+  });
+  $$('#filter-estado, #filter-marca, #filter-subcategoria')
     .forEach(sel => sel.addEventListener('change', renderLibrary));
+
   boot();
 }
 
