@@ -4,671 +4,622 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Collection Hub</title>
+<meta name="description" content="Tu galería personal de colecciones.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: '#121212',
+          surface: '#1B1B1B',
+          surface2: '#171717',
+          line: '#2C2C2C',
+          ink: '#F2F1EC',
+          dim: '#8C8C86',
+          faint: '#5B5B57',
+          gold: '#D4AF37',
+        },
+        fontFamily: {
+          sans: ['Inter', 'sans-serif'],
+          display: ['"Inter Tight"', 'sans-serif'],
+        },
+        borderRadius: { card: '14px' },
+      }
+    }
+  };
+</script>
+
 <style>
-  /* ============================================================
-     COLLECTION HUB — Interfaz conectada a Google Apps Script
-     Los datos se piden en vivo a APPS_SCRIPT_URL (ver <script> abajo).
-     ============================================================ */
-
-  :root{
-    --bg:#121212;
-    --surface:#1E1E1E;
-    --border:#2C2C2C;
-    --text:#F2F1EC;
-    --text-dim:#8C8C86;
-    --text-faint:#5B5B57;
-    --accent:#D4AF37;
-    --radius:14px;
-    --ease:cubic-bezier(.22,.61,.36,1);
-  }
-
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html{scroll-behavior:smooth;}
-
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Inter', sans-serif;
-    -webkit-font-smoothing:antialiased;
-    line-height:1.5;
-  }
-
+  :root{ --accent:#D4AF37; }
+  *{ scrollbar-color: #2C2C2C transparent; }
+  html{ scroll-behavior:smooth; }
+  body{ -webkit-font-smoothing:antialiased; }
   ::selection{ background:var(--accent); color:#121212; }
-
-  h1,h2,h3,.display{
-    font-family:'Inter Tight', sans-serif;
-    font-weight:700;
-    letter-spacing:-0.01em;
-    line-height:1.05;
-  }
-
-  a{ color:inherit; text-decoration:none; }
-  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
-  img{ display:block; max-width:100%; }
-
   :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
 
   @media (prefers-reduced-motion: reduce){
-    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
     html{ scroll-behavior:auto; }
   }
 
-  /* ---------- HEADER ---------- */
-  header{
-    position:sticky; top:0; z-index:100;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:18px 32px;
-    background:rgba(18,18,18,0.82);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-    border-bottom:1px solid var(--border);
-  }
-  .logo{
-    font-family:'Inter Tight', sans-serif; font-weight:700; font-size:1.05rem;
-    letter-spacing:-0.01em; display:flex; align-items:center; gap:8px;
-  }
-  .logo-mark{
-    width:9px; height:9px; border-radius:50%;
-    background:linear-gradient(135deg,#D4AF37,#4F8EF7 50%,#FF6B35);
-    flex-shrink:0;
-  }
-  nav.primary-nav{ display:flex; gap:34px; font-size:0.88rem; color:var(--text-dim); }
-  nav.primary-nav a{ transition:color .2s var(--ease); position:relative; }
-  nav.primary-nav a:hover{ color:var(--text); }
+  .hscroll::-webkit-scrollbar{ height:5px; }
+  .hscroll::-webkit-scrollbar-thumb{ background:#2C2C2C; border-radius:10px; }
 
-  .header-right{ display:flex; align-items:center; gap:14px; }
+  @keyframes heroIn{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:translateY(0);} }
+  .hero-in{ animation:heroIn .9s cubic-bezier(.22,.61,.36,1) .1s both; }
 
-  .search-wrap{
-    display:flex; align-items:center; gap:8px;
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:20px; padding:7px 14px;
-    transition:border-color .2s var(--ease);
-  }
-  .search-wrap:focus-within{ border-color:var(--text-faint); }
-  .search-wrap input{
-    background:none; border:none; color:var(--text);
-    font-size:0.85rem; width:140px; outline:none;
-  }
-  .search-wrap input::placeholder{ color:var(--text-faint); }
-  .search-wrap svg{ width:14px; height:14px; stroke:var(--text-dim); flex-shrink:0; }
+  @keyframes toastIn{ from{ opacity:0; transform:translate(-50%,10px);} to{ opacity:1; transform:translate(-50%,0);} }
+  .toast-show{ animation:toastIn .25s cubic-bezier(.22,.61,.36,1) both; }
 
-  @media (max-width: 860px){
-    nav.primary-nav{ display:none; }
-    .search-wrap input{ width:90px; }
-    header{ padding:14px 18px; }
+  .skel{ position:relative; overflow:hidden; background:#1B1B1B; }
+  .skel::after{
+    content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.045), transparent);
+    animation:shimmer 1.6s infinite;
   }
+  @keyframes shimmer{ 100%{ transform:translateX(100%); } }
 
-  /* ---------- HERO ---------- */
-  .hero{
-    min-height:78vh; display:flex; flex-direction:column; justify-content:center;
-    padding:0 32px; max-width:780px;
-    opacity:0; transform:translateY(14px);
-    animation:heroIn .9s var(--ease) 0.15s forwards;
-  }
-  @keyframes heroIn{ to{ opacity:1; transform:translateY(0); } }
+  .card-hover{ transition:transform .25s cubic-bezier(.22,.61,.36,1), border-color .25s cubic-bezier(.22,.61,.36,1); }
+  .card-hover:hover{ transform:translateY(-4px); }
+  .plate img, .plate svg{ transition:transform .35s cubic-bezier(.22,.61,.36,1); }
+  .card-hover:hover .plate img, .card-hover:hover .plate svg{ transform:scale(1.08); }
 
-  .hero-eyebrow{ font-size:0.8rem; color:var(--text-dim); margin-bottom:18px; }
-  .hero h1{ font-size:clamp(2.4rem, 6vw, 4.6rem); max-width:11ch; }
-  .hero p{ margin-top:22px; max-width:46ch; font-size:1.05rem; color:var(--text-dim); }
-  .hero-stats{ display:flex; gap:36px; margin-top:44px; }
-  .hero-stat b{ display:block; font-family:'Inter Tight'; font-size:1.6rem; font-weight:600; }
-  .hero-stat span{ font-size:0.78rem; color:var(--text-dim); }
+  dialog#item-modal{ background:transparent; max-width:none; max-height:none; width:100%; height:100%; margin:0; padding:0; }
+  dialog#item-modal::backdrop{ background:rgba(10,10,10,.7); backdrop-filter:blur(3px); }
+  dialog#item-modal[open]{ display:flex; align-items:center; justify-content:center; }
 
-  /* ---------- SECCIÓN DE COLECCIÓN ---------- */
-  .collection-section{
-    padding:100px 32px 84px; border-top:1px solid var(--border);
-    position:relative; overflow:hidden;
-  }
-  .collection-section::before{
-    content:''; position:absolute; inset:0;
-    background:radial-gradient(680px 420px at 8% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
-    pointer-events:none;
-  }
-  .collection-head{
-    display:flex; justify-content:space-between; align-items:flex-end;
-    gap:24px; margin-bottom:48px; position:relative; z-index:1;
-  }
-  .collection-head-left{ max-width:560px; }
-  .collection-kicker{
-    display:flex; align-items:center; gap:8px;
-    font-size:0.78rem; color:var(--accent); margin-bottom:14px; font-weight:500;
-  }
-  .collection-kicker .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
-  .collection-head h2{ font-size:clamp(1.8rem, 3.4vw, 2.6rem); }
-  .collection-head p{ color:var(--text-dim); margin-top:12px; font-size:0.96rem; max-width:52ch; }
-  .collection-count{ text-align:right; flex-shrink:0; font-size:0.78rem; color:var(--text-dim); }
-  .collection-count b{ display:block; font-family:'Inter Tight'; font-size:2.2rem; font-weight:600; color:var(--text); }
-
-  /* ---------- VITRINA (colección con slots) ---------- */
-  .vitrine{
-    display:flex; gap:18px; overflow-x:auto; padding-bottom:10px;
-    scroll-snap-type:x proximity; position:relative; z-index:1;
-  }
-  .vitrine::-webkit-scrollbar{ height:5px; }
-  .vitrine::-webkit-scrollbar-thumb{ background:var(--border); border-radius:10px; }
-
-  .slot-card{
-    flex:0 0 240px; scroll-snap-align:start;
-    border:1px solid var(--border); background:var(--surface);
-    border-radius:var(--radius); overflow:hidden;
-    transition:transform .25s var(--ease), border-color .25s var(--ease);
-  }
-  .slot-card:hover{ transform:translateY(-4px); border-color:color-mix(in srgb, var(--accent) 40%, var(--border)); }
-
-  .slot-card .plate{
-    aspect-ratio:1/1.05; display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(140% 120% at 20% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%), #171717;
-    position:relative; overflow:hidden;
-  }
-  .slot-card .plate svg{
-    width:38%; height:38%; stroke:color-mix(in srgb, var(--accent) 70%, white 10%);
-    fill:none; stroke-width:1.1; transition:transform .35s var(--ease);
-  }
-  .slot-card .plate img{
-    width:100%; height:100%; object-fit:cover; transition:transform .35s var(--ease);
-  }
-  .slot-card:hover .plate svg,
-  .slot-card:hover .plate img{ transform:scale(1.08); }
-
-  .slot-card.empty .plate{ background:#161616; }
-  .slot-card.empty .plate svg{ stroke:var(--text-faint); opacity:0.55; }
-
-  .status-pill{
-    position:absolute; top:10px; right:10px;
-    font-size:0.65rem; padding:4px 9px; border-radius:20px;
-    background:rgba(18,18,18,0.78); border:1px solid var(--border); color:var(--text-dim);
-    backdrop-filter:blur(4px); z-index:2;
-  }
-  .status-pill.owned{ color:#8FD19E; border-color:#2C4A32; }
-  .status-pill.wishlist{ color:#E0C170; border-color:#4A3F22; }
-
-  .slot-card .info{ padding:14px 15px 16px; }
-  .slot-card .slot-name{ font-size:0.7rem; color:var(--accent); margin-bottom:6px; font-weight:500; }
-  .slot-card .item-name{ font-size:0.98rem; font-weight:500; }
-  .slot-card .item-brand{ font-size:0.8rem; color:var(--text-dim); margin-top:2px; }
-  .slot-card.empty .item-name{ color:var(--text-faint); font-weight:400; }
-
-  /* ---------- GRID DIRECTO (colección sin slots) ---------- */
-  .chip-bar{ display:flex; align-items:center; gap:10px; margin-bottom:28px; flex-wrap:wrap; position:relative; z-index:1; }
-  .chip{
-    font-size:0.82rem; padding:7px 15px; border-radius:20px;
-    border:1px solid var(--border); color:var(--text-dim);
-    transition:all .2s var(--ease); background:transparent;
-  }
-  .chip:hover{ border-color:var(--text-faint); color:var(--text); }
-  .chip.active{ background:var(--accent); color:#121212; border-color:var(--accent); font-weight:500; }
-  .sort-btn{
-    margin-left:auto; display:flex; align-items:center; gap:6px;
-    font-size:0.82rem; color:var(--text-dim); padding:7px 13px; border:1px solid var(--border); border-radius:20px;
-  }
-  .sort-btn:hover{ color:var(--text); border-color:var(--text-faint); }
-  .sort-btn svg{ width:12px; height:12px; }
-
-  .item-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:18px; position:relative; z-index:1; }
-  .item-card{
-    border:1px solid var(--border); background:var(--surface);
-    border-radius:var(--radius); overflow:hidden;
-    transition:transform .25s var(--ease), border-color .25s var(--ease);
-  }
-  .item-card:hover{ transform:translateY(-4px); border-color:color-mix(in srgb, var(--accent) 40%, var(--border)); }
-  .item-card .plate{
-    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(140% 120% at 20% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%), #171717;
-    position:relative; overflow:hidden;
-  }
-  .item-card .plate svg{
-    width:34%; height:34%; stroke:color-mix(in srgb, var(--accent) 70%, white 10%);
-    fill:none; stroke-width:1.1; transition:transform .35s var(--ease);
-  }
-  .item-card .plate img{ width:100%; height:100%; object-fit:cover; transition:transform .35s var(--ease); }
-  .item-card:hover .plate svg,
-  .item-card:hover .plate img{ transform:scale(1.08); }
-  .item-card .info{ padding:13px 14px 15px; }
-  .item-card .item-name{ font-size:0.94rem; font-weight:500; }
-  .item-card .item-meta{ font-size:0.78rem; color:var(--text-dim); margin-top:3px; }
-
-  /* Estado vacío de colección */
-  .empty-collection{
-    position:relative; z-index:1; border:1px solid var(--border); border-radius:var(--radius);
-    padding:56px 32px; text-align:center; background:var(--surface);
-  }
-  .empty-collection p.lead{ font-size:1.02rem; margin-bottom:6px; }
-  .empty-collection p.sub{ font-size:0.88rem; color:var(--text-dim); }
-
-  /* ---------- BIBLIOTECA ---------- */
-  .library{ padding:100px 32px 120px; border-top:1px solid var(--border); }
-  .library-head{ max-width:560px; margin-bottom:36px; }
-  .library-head h2{ font-size:clamp(1.8rem, 3.4vw, 2.6rem); }
-  .library-head p{ color:var(--text-dim); margin-top:12px; font-size:0.96rem; }
-
-  .filter-bar{
-    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-    margin-bottom:32px; padding-bottom:24px; border-bottom:1px solid var(--border);
-  }
-  .filter-bar select{
-    background:var(--surface); border:1px solid var(--border); color:var(--text);
-    font-size:0.82rem; padding:8px 12px; border-radius:9px; font-family:inherit;
-  }
-  .filter-bar select:hover{ border-color:var(--text-faint); }
-  .result-count{ margin-left:auto; font-size:0.8rem; color:var(--text-dim); }
-
-  .masonry{ columns:4 220px; column-gap:18px; }
-  .masonry .item-card{ break-inside:avoid; margin-bottom:18px; display:block; }
-  @media (max-width:680px){ .masonry{ columns:2 160px; } }
-
-  .no-results{ text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.92rem; }
-
-  /* ---------- ESTADOS DE CARGA / ERROR ---------- */
-  .loading-state, .error-state{
-    padding:80px 20px; text-align:center; color:var(--text-dim); font-size:0.92rem;
-  }
-  .error-state button{
-    margin-top:16px; font-size:0.85rem; color:var(--accent);
-    border:1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-    padding:9px 18px; border-radius:20px;
-  }
-  .error-state button:hover{ background:color-mix(in srgb, var(--accent) 10%, transparent); }
-  .pulse{ animation:pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
-
-  /* ---------- FOOTER ---------- */
-  footer{
-    padding:40px 32px; border-top:1px solid var(--border);
-    display:flex; justify-content:space-between; align-items:center;
-    font-size:0.8rem; color:var(--text-faint); flex-wrap:wrap; gap:12px;
-  }
-
-  .toast{
-    position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
-    background:var(--surface); border:1px solid var(--border); color:var(--text);
-    padding:12px 20px; border-radius:10px; font-size:0.85rem;
-    opacity:0; pointer-events:none; transition:all .3s var(--ease); z-index:300;
-    max-width:80vw; text-align:center;
-  }
-  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  details.dash > summary{ list-style:none; }
+  details.dash > summary::-webkit-details-marker{ display:none; }
+  details.dash[open] .chev{ transform:rotate(180deg); }
 </style>
 </head>
-<body>
+<body class="bg-bg text-ink font-sans leading-relaxed">
 
-<header>
-  <div class="logo"><span class="logo-mark"></span>Collection Hub</div>
-  <nav class="primary-nav">
-    <a href="#inicio">Inicio</a>
-    <a href="#colecciones-anchor" id="nav-colecciones">Colecciones</a>
-    <a href="#biblioteca">Biblioteca</a>
+<!-- ================= HEADER ================= -->
+<header class="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 md:px-8 py-4 bg-bg/80 backdrop-blur-md border-b border-line">
+  <a href="#inicio" class="flex items-center gap-2 font-display font-bold tracking-tight text-[1.05rem] shrink-0">
+    <span class="w-2.5 h-2.5 rounded-full block" style="background:linear-gradient(135deg,#D4AF37,#4F8EF7 50%,#FF6B35)"></span>
+    Collection Hub
+  </a>
+  <nav class="hidden md:flex gap-8 text-[0.88rem] text-dim">
+    <a href="#inicio" class="hover:text-ink transition-colors">Inicio</a>
+    <a href="#explorar" class="hover:text-ink transition-colors">Explorar</a>
+    <a href="#dashboard" class="hover:text-ink transition-colors">Estadísticas</a>
   </nav>
-  <div class="header-right">
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" fill="none" stroke-width="2"/><line x1="21" y1="21" x2="16.6" y2="16.6" stroke="currentColor" stroke-width="2"/></svg>
-      <input type="text" id="global-search" placeholder="Buscar pieza…">
-    </div>
+  <div class="flex items-center gap-2 bg-surface border border-line rounded-full pl-3 pr-2 py-1.5 focus-within:border-faint transition-colors">
+    <i data-lucide="search" class="w-3.5 h-3.5 text-dim shrink-0"></i>
+    <input id="global-search" type="text" placeholder="Buscar pieza…"
+      class="bg-transparent border-none text-[0.85rem] w-24 sm:w-40 outline-none placeholder:text-faint">
   </div>
 </header>
 
-<section class="hero" id="inicio">
-  <div class="hero-eyebrow">Tu galería personal</div>
-  <h1>Cada pieza, en su lugar. Cada colección, su propia sala.</h1>
-  <p>Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés equipado y lo que estás esperando conseguir, colección por colección.</p>
-  <div class="hero-stats" id="hero-stats">
-    <div class="hero-stat pulse"><b>—</b><span>Cargando…</span></div>
-  </div>
+<!-- ================= HERO ================= -->
+<section id="inicio" class="hero-in min-h-[64vh] flex flex-col justify-center px-5 md:px-8 max-w-3xl py-16">
+  <div class="text-[0.8rem] text-dim mb-4">Tu galería personal</div>
+  <h1 class="font-display font-bold text-[clamp(2.2rem,6vw,4.2rem)] leading-[1.05] max-w-[11ch]">
+    Cada pieza, en su lugar. Cada colección, su sala.
+  </h1>
+  <p class="mt-5 max-w-[46ch] text-[1.02rem] text-dim">
+    Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés y lo que estás esperando conseguir, colección por colección.
+  </p>
+  <div id="hero-stats" class="flex flex-wrap gap-8 md:gap-10 mt-10"></div>
 </section>
 
-<div id="colecciones-anchor"></div>
-<main id="collections-container">
-  <div class="loading-state pulse">Cargando tu colección…</div>
-</main>
+<!-- ================= DASHBOARD ================= -->
+<section id="dashboard" class="border-t border-line px-5 md:px-8 py-10">
+  <details class="dash" open>
+    <summary class="flex items-center justify-between cursor-pointer select-none">
+      <div>
+        <div class="flex items-center gap-2 text-[0.78rem] text-gold font-medium mb-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>Panel
+        </div>
+        <h2 class="font-display font-bold text-[clamp(1.4rem,2.6vw,1.9rem)]">Estadísticas de la colección</h2>
+      </div>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-dim transition-transform duration-200"></i>
+    </summary>
+    <div id="dashboard-body" class="mt-8"></div>
+  </details>
+</section>
 
-<section class="library" id="biblioteca">
-  <div class="library-head">
-    <h2>Biblioteca general</h2>
-    <p>Todo lo registrado, en un solo lugar. Filtrá por colección, estado, marca o subcategoría.</p>
+<!-- ================= EXPLORAR (tabs) ================= -->
+<section id="explorar" class="border-t border-line px-5 md:px-8 py-14">
+  <div class="max-w-[560px] mb-8">
+    <h2 class="font-display font-bold text-[clamp(1.6rem,3vw,2.3rem)]">Explorar colección</h2>
+    <p class="mt-3 text-dim text-[0.96rem]">Cambiá de vista, filtrá y ordená lo que buscás.</p>
   </div>
 
-  <div class="filter-bar">
-    <select id="filter-coleccion"><option value="">Colección</option></select>
-    <select id="filter-estado">
+  <div class="flex gap-2 mb-8 border-b border-line" id="view-tabs">
+    <button data-view="vitrina" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Vitrina</button>
+    <button data-view="grid" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Todas las piezas</button>
+    <button data-view="wishlist" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Wishlist</button>
+  </div>
+
+  <!-- filtros: solo visibles en grid / wishlist -->
+  <div id="filter-bar" class="hidden flex-wrap gap-2.5 items-center mb-8 pb-6 border-b border-line">
+    <select id="filter-coleccion" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
+      <option value="">Colección</option>
+    </select>
+    <select id="filter-estado" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
       <option value="">Estado</option>
       <option value="Comprado">Comprado</option>
       <option value="En Wishlist">En Wishlist</option>
     </select>
-    <select id="filter-marca"><option value="">Marca</option></select>
-    <select id="filter-subcategoria"><option value="">Subcategoría</option></select>
-    <span class="result-count" id="result-count"></span>
+    <select id="filter-marca" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
+      <option value="">Marca</option>
+    </select>
+    <select id="filter-sort" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
+      <option value="nombre">Ordenar: Nombre</option>
+      <option value="fecha">Ordenar: Más recientes</option>
+      <option value="prioridad">Ordenar: Prioridad</option>
+      <option value="precio">Ordenar: Precio (mayor a menor)</option>
+    </select>
+    <span id="result-count" class="ml-auto text-[0.8rem] text-dim"></span>
   </div>
 
-  <div class="masonry" id="masonry-grid"></div>
+  <div id="view-content"></div>
 </section>
 
-<footer>
+<footer class="px-5 md:px-8 py-8 border-t border-line flex flex-wrap justify-between gap-3 text-[0.8rem] text-faint">
   <span>Collection Hub</span>
   <span id="footer-status">Conectando con la base de datos…</span>
 </footer>
 
-<div class="toast" id="toast"></div>
+<!-- ================= MODAL DETALLE ================= -->
+<dialog id="item-modal" class="p-4 md:p-8">
+  <div class="bg-surface border border-line rounded-card w-full max-w-3xl max-h-[88vh] overflow-y-auto relative" id="modal-panel"></div>
+</dialog>
+
+<div id="toast" class="fixed bottom-7 left-1/2 -translate-x-1/2 bg-surface border border-line rounded-xl px-5 py-3 text-[0.85rem] max-w-[80vw] text-center opacity-0 pointer-events-none z-50"></div>
 
 <script>
 /* ============================================================
-   CONEXIÓN CON GOOGLE APPS SCRIPT
-   Pegá acá la URL de tu Web App (Implementar > Nueva implementación
-   > Aplicación web > acceso "Cualquier usuario"). Tiene que devolver
-   un JSON con la forma { configuracion, colecciones, slots, items }.
+   CONFIGURACIÓN
    ============================================================ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTOdICTMOUTvTepfVY1tIICK_zz7WFtVBz2m4wjLabw36RsnH21b4GV6PMNnuvBlus_Q/exec'; // TODO: reemplazar por tu URL real
+const APPS_SCRIPT_URL = 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'; // TODO: reemplazar por tu URL real de Apps Script
 
-let DATA = { configuracion: [], colecciones: [], slots: [], items: [] };
+let DATA = { items: [], slots: [], colecciones: [] };
+let fuse = null;
 
-/* ---------- Íconos por tipo de colección (placeholder cuando no hay foto) ---------- */
-const ICONS = {
-  watch: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v3l2 1.5"/><path d="M9 2h6M9 22h6"/></svg>',
-  shoe: '<svg viewBox="0 0 24 24"><path d="M3 17c0-2 1.5-3 3-4l4-3c1-1 2-1 3-1l5 2c2 1 3 2 3 4v2c0 1-1 2-2 2H4c-1 0-1-1-1-2z"/><path d="M3 17h18"/></svg>',
-  jersey: '<svg viewBox="0 0 24 24"><path d="M8 3 4 6l1 4h2v11h10V10h2l1-4-4-3-2 2h-4z"/></svg>',
-  default: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>'
-};
+const state = { view: 'vitrina', colF: '', estadoF: '', marcaF: '', search: '', sort: 'nombre' };
 
-const $ = (sel, ctx=document) => ctx.querySelector(sel);
-const $$ = (sel, ctx=document) => [...ctx.querySelectorAll(sel)];
+const ICONS = { watch: 'watch', shoe: 'footprints', jersey: 'shirt', book: 'book', gem: 'gem', default: 'package' };
+const PRIORIDAD_LABEL = { 1: 'Alta', 2: 'Media', 3: 'Baja' };
 
-function iconFor(nombreIcono){ return ICONS[nombreIcono] || ICONS.default; }
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
-function escapeHTML(str=''){
-  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ---------- utilidades ---------- */
+function escapeHTML(str = ''){
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(str = ''){ return escapeHTML(str).replace(/`/g, '&#96;'); }
+
+function normalizeForSearch(str = ''){
+  return String(str ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
-/* Normaliza un valor para comparar: recorta espacios/saltos de línea
-   invisibles y pasa a minúsculas, para que "COL_1", " col_1 " o
-   "col_1\r\n" se consideren el mismo valor. */
-function normalizeKey(v){
-  return String(v ?? '').trim().toLowerCase();
+function coleccionDe(idColeccion){
+  return DATA.colecciones.find(c => c.ID_Coleccion === idColeccion);
 }
 
-/* Encuentra la colección de un ítem tolerando que la Sheet guarde el
-   ID_Coleccion (ej. "COL_1") o directamente el nombre (ej. "Relojes"),
-   con espacios o mayúsculas distintas. Evita que un desajuste de texto
-   en la Sheet deje ítems "huérfanos" que no matchean ningún filtro. */
-function coleccionDeItem(item){
-  const key = normalizeKey(item?.ID_Coleccion);
-  if(!key) return undefined;
-  return DATA.colecciones.find(c =>
-    normalizeKey(c.ID_Coleccion) === key || normalizeKey(c.Nombre_Coleccion) === key
-  );
+function formatPrecio(item){
+  if(item.Precio === null || item.Precio === undefined || isNaN(item.Precio)) return null;
+  try{
+    return new Intl.NumberFormat('es-UY', { style:'currency', currency: item.Moneda || 'USD', maximumFractionDigits:0 }).format(item.Precio);
+  }catch(e){
+    return `${item.Precio} ${item.Moneda || ''}`.trim();
+  }
 }
 
-/* ---------- Conversión de links de Google Drive a formato directo ---------- */
+function iconSvg(name, cls){
+  return `<i data-lucide="${ICONS[name] || ICONS.default}" class="${cls}"></i>`;
+}
+
+/* ---------- Drive URL → link directo, con fallback si falla ---------- */
 function convertDriveUrl(url){
   if(!url) return '';
   url = String(url).trim();
   if(!url) return '';
-
-  // Ya viene en el formato directo que necesitamos
   if(/drive\.google\.com\/uc\?/.test(url) && /[?&]id=/.test(url)) return url;
 
-  // Si no parece ser de Drive ni un ID suelto, se devuelve tal cual
-  // (puede ser una URL de imagen de cualquier otro origen)
   const looksLikeBareId = /^[a-zA-Z0-9_-]{20,}$/.test(url);
   if(!/drive\.google\.com/.test(url) && !looksLikeBareId) return url;
 
-  const patterns = [
-    /\/file\/d\/([a-zA-Z0-9_-]+)/,  // .../file/d/ID/view
-    /[?&]id=([a-zA-Z0-9_-]+)/,      // ...?id=ID  ó  open?id=ID
-    /\/d\/([a-zA-Z0-9_-]+)/         // patrón genérico /d/ID
-  ];
-
+  const patterns = [/\/file\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/];
   let fileId = '';
-  for(const p of patterns){
-    const m = url.match(p);
-    if(m){ fileId = m[1]; break; }
-  }
+  for(const p of patterns){ const m = url.match(p); if(m){ fileId = m[1]; break; } }
   if(!fileId && looksLikeBareId) fileId = url;
-
   return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
 }
 
-/* ---------- Visual de una pieza: foto real o ícono de respaldo ---------- */
-function itemVisualHTML(coleccion, item){
-  const rawUrl = item && item.URL_Imagen ? item.URL_Imagen : '';
+/* Visual de una pieza: <img> con respaldo de ícono siempre presente en el DOM
+   (nunca se reemplaza markup en caliente, solo se alternan display). */
+function itemVisualHTML(item, opts = {}){
+  const col = coleccionDe(item.ID_Coleccion);
+  const size = opts.big ? 'w-2/5 h-2/5' : 'w-9 h-9';
+  const rawUrl = item.URL_Imagen;
   const imgUrl = convertDriveUrl(rawUrl);
-  const fallbackIcon = iconFor(coleccion?.Icono);
-  if(!imgUrl) return fallbackIcon;
-  return `<img src="${imgUrl}" alt="${escapeHTML(item.Nombre)}" loading="lazy" onerror="this.outerHTML = ${JSON.stringify(fallbackIcon)};">`;
+  const iconHTML = `<div class="fallback-icon absolute inset-0 flex items-center justify-center" style="${imgUrl ? 'display:none' : ''}">${iconSvg(col?.Icono, `${size} text-[color:var(--accent)] opacity-80`)}</div>`;
+  const imgHTML = imgUrl
+    ? `<img src="${escapeAttr(imgUrl)}" alt="${escapeAttr(item.Nombre)}" loading="lazy" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+    : '';
+  return imgHTML + iconHTML;
 }
 
-/* ---------- Construcción de tarjeta de ítem ---------- */
-function itemCardHTML(item, opts={}){
-  const estadoClass = item.Estado === 'Comprado' ? 'owned' : 'wishlist';
-  const col = coleccionDeItem(item);
+function statusPill(estado){
+  const owned = estado === 'Comprado';
+  return `<span class="absolute top-2.5 right-2.5 z-10 text-[0.65rem] px-2.5 py-1 rounded-full backdrop-blur-sm border ${owned ? 'text-emerald-300 border-emerald-800 bg-emerald-950/40' : 'text-amber-200 border-amber-800 bg-amber-950/30'}">${escapeHTML(estado)}</span>`;
+}
+
+/* ---------- Tarjeta de ítem (grid / wishlist / biblioteca) ---------- */
+function itemCardHTML(item, opts = {}){
+  const col = coleccionDe(item.ID_Coleccion);
+  const precio = formatPrecio(item);
   return `
-    <div class="item-card" style="--accent:${col?.Color || '#D4AF37'}">
-      <div class="plate">
-        <span class="status-pill ${estadoClass}">${item.Estado}</span>
-        ${itemVisualHTML(col, item)}
-      </div>
-      <div class="info">
-        <div class="item-name">${escapeHTML(item.Nombre)}</div>
-        <div class="item-meta">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${opts.showCollection ? ' · ' + escapeHTML(col?.Nombre_Coleccion || '') : ''}</div>
-      </div>
-    </div>`;
-}
-
-/* ---------- Sección con vitrina de slots ---------- */
-function vitrineHTML(coleccion, slotsDeColeccion, itemsDeColeccion){
-  const cards = slotsDeColeccion.map(slot => {
-    const item = itemsDeColeccion.find(i => i.ID_Slot_Asignado === slot.ID_Slot);
-    if(!item){
-      return `
-        <div class="slot-card empty">
-          <div class="plate">${iconFor(coleccion.Icono)}</div>
-          <div class="info">
-            <div class="slot-name">${escapeHTML(slot.Nombre_Slot)}</div>
-            <div class="item-name">Sin equipar</div>
-          </div>
-        </div>`;
-    }
-    return `
-      <div class="slot-card">
-        <div class="plate">
-          <span class="status-pill owned">Comprado</span>
-          ${itemVisualHTML(coleccion, item)}
-        </div>
-        <div class="info">
-          <div class="slot-name">${escapeHTML(slot.Nombre_Slot)}</div>
-          <div class="item-name">${escapeHTML(item.Nombre)}</div>
-          <div class="item-brand">${escapeHTML(item.Marca)}</div>
-        </div>
-      </div>`;
-  }).join('');
-  return `<div class="vitrine">${cards}</div>`;
-}
-
-/* ---------- Sección grid directo (sin slots), con chips ---------- */
-function gridSectionHTML(coleccion, itemsDeColeccion){
-  const subcats = [...new Set(itemsDeColeccion.map(i => i.Subcategoria))];
-  const chips = ['Todas', ...subcats].map((s,idx) =>
-    `<button class="chip ${idx===0?'active':''}" data-filter="${s==='Todas'?'':escapeHTML(s)}">${escapeHTML(s)}</button>`
-  ).join('');
-
-  return `
-    <div class="chip-bar">
-      ${chips}
-      <button class="sort-btn">
-        Ordenar
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
-      </button>
+  <button data-item-id="${escapeAttr(item.ID_Item)}" class="item-card-btn card-hover text-left border border-line bg-surface rounded-card overflow-hidden block w-full" style="--accent:${col?.Color || '#D4AF37'}">
+    <div class="plate relative aspect-square flex items-center justify-center overflow-hidden bg-surface2">
+      ${item.Destacado ? '<span class="absolute top-2.5 left-2.5 z-10"><i data-lucide="star" class="w-3.5 h-3.5 text-gold fill-gold"></i></span>' : ''}
+      ${statusPill(item.Estado)}
+      ${itemVisualHTML(item)}
     </div>
-    <div class="item-grid">
-      ${itemsDeColeccion.map(i => itemCardHTML(i)).join('')}
-    </div>`;
+    <div class="p-3.5">
+      <div class="text-[0.94rem] font-medium truncate">${escapeHTML(item.Nombre)}</div>
+      <div class="text-[0.78rem] text-dim mt-0.5 truncate">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${opts.showCollection ? ' · ' + escapeHTML(col?.Nombre || '') : ''}</div>
+      <div class="flex items-center justify-between mt-2">
+        ${precio ? `<span class="text-[0.8rem] text-ink/90">${escapeHTML(precio)}</span>` : '<span></span>'}
+        ${opts.showPriority && item.Estado !== 'Comprado' ? `<span class="text-[0.68rem] px-2 py-0.5 rounded-full border border-line text-dim">${PRIORIDAD_LABEL[item.Prioridad] || 'Media'}</span>` : ''}
+      </div>
+    </div>
+  </button>`;
 }
 
-/* ---------- Estado vacío de una colección sin ítems ---------- */
-function emptyCollectionHTML(){
-  return `
-    <div class="empty-collection">
-      <p class="lead">Todavía no hay piezas acá.</p>
-      <p class="sub">Cuando cargues la primera fila en la Sheet, va a aparecer en esta sala.</p>
+/* ---------- Vista Vitrina (por colección: slots o grid) ---------- */
+function vitrinaSlotCardHTML(col, slot, item){
+  if(!item){
+    return `
+    <div class="flex-none w-56 snap-start border border-line bg-surface rounded-card overflow-hidden opacity-70">
+      <div class="plate relative aspect-[1/1.05] flex items-center justify-center bg-surface2">${iconSvg(col.Icono, 'w-9 h-9 text-faint')}</div>
+      <div class="p-3.5">
+        <div class="text-[0.7rem] text-gold font-medium mb-1">${escapeHTML(slot.Nombre_Slot)}</div>
+        <div class="text-[0.92rem] text-faint">Sin equipar</div>
+      </div>
     </div>`;
-}
-
-/* ---------- Render de todas las colecciones ---------- */
-function renderCollections(){
-  const container = $('#collections-container');
-  const activas = DATA.colecciones.filter(c => c.Activa === 'SI');
-
-  if(activas.length === 0){
-    container.innerHTML = `<div class="loading-state">Todavía no hay colecciones cargadas en la Sheet.</div>`;
-    return;
   }
+  return `
+  <button data-item-id="${escapeAttr(item.ID_Item)}" class="item-card-btn card-hover flex-none w-56 snap-start text-left border border-line bg-surface rounded-card overflow-hidden block" style="--accent:${col.Color}">
+    <div class="plate relative aspect-[1/1.05] flex items-center justify-center overflow-hidden bg-surface2">
+      ${statusPill(item.Estado)}
+      ${itemVisualHTML(item)}
+    </div>
+    <div class="p-3.5">
+      <div class="text-[0.7rem] text-gold font-medium mb-1">${escapeHTML(slot.Nombre_Slot)}</div>
+      <div class="text-[0.96rem] font-medium">${escapeHTML(item.Nombre)}</div>
+      <div class="text-[0.8rem] text-dim mt-0.5">${escapeHTML(item.Marca)}</div>
+    </div>
+  </button>`;
+}
 
-  const html = activas.map(col => {
-    const itemsDeColeccion = DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion);
-    const slotsDeColeccion = DATA.slots
-      .filter(s => s.ID_Coleccion === col.ID_Coleccion)
-      .sort((a,b) => a.Orden - b.Orden);
+function renderVitrina(){
+  const activas = DATA.colecciones;
+  if(activas.length === 0) return `<div class="text-center py-16 text-dim">Todavía no hay colecciones cargadas.</div>`;
+
+  return activas.map(col => {
+    const itemsDeColeccion = DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion);
+    const slotsDeColeccion = DATA.slots.filter(s => s.ID_Coleccion === col.ID_Coleccion).sort((a,b) => a.Orden - b.Orden);
 
     let body;
     if(itemsDeColeccion.length === 0){
-      body = emptyCollectionHTML();
+      body = `<div class="border border-line bg-surface rounded-card p-14 text-center">
+                <p class="text-[1rem]">Todavía no hay piezas acá.</p>
+                <p class="text-[0.88rem] text-dim mt-1.5">Cuando cargues la primera fila en la Sheet, va a aparecer en esta sala.</p>
+              </div>`;
     } else if(slotsDeColeccion.length > 0){
-      body = vitrineHTML(col, slotsDeColeccion, itemsDeColeccion);
+      const cards = slotsDeColeccion.map(slot => {
+        const item = itemsDeColeccion.find(i => i.ID_Slot_Asignado === slot.ID_Slot);
+        return vitrinaSlotCardHTML(col, slot, item);
+      }).join('');
+      body = `<div class="flex gap-4 overflow-x-auto pb-2 hscroll snap-x snap-proximity">${cards}</div>`;
     } else {
-      body = gridSectionHTML(col, itemsDeColeccion);
+      body = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${itemsDeColeccion.map(i => itemCardHTML(i)).join('')}</div>`;
     }
 
     return `
-      <section class="collection-section" id="col-${col.ID_Coleccion}" style="--accent:${col.Color}">
-        <div class="collection-head">
-          <div class="collection-head-left">
-            <div class="collection-kicker"><span class="dot"></span>Colección</div>
-            <h2>${escapeHTML(col.Nombre_Coleccion)}</h2>
-            <p>${escapeHTML(col.Descripcion)}</p>
+    <section class="mb-16 relative" style="--accent:${col.Color}">
+      <div class="flex justify-between items-end gap-6 mb-7">
+        <div class="max-w-[560px]">
+          <div class="flex items-center gap-2 text-[0.78rem] mb-3 font-medium" style="color:var(--accent)">
+            <span class="w-1.5 h-1.5 rounded-full" style="background:var(--accent)"></span>Colección
           </div>
-          <div class="collection-count">
-            <b>${itemsDeColeccion.length}</b>
-            pieza${itemsDeColeccion.length === 1 ? '' : 's'}
-          </div>
+          <h3 class="font-display font-bold text-[clamp(1.5rem,3vw,2.1rem)]">${escapeHTML(col.Nombre)}</h3>
+          <p class="text-dim mt-2 text-[0.94rem]">${escapeHTML(col.Descripcion)}</p>
         </div>
-        ${body}
-      </section>`;
+        <div class="text-right shrink-0 text-[0.78rem] text-dim">
+          <b class="block font-display text-[1.9rem] font-semibold text-ink">${itemsDeColeccion.length}</b>
+          pieza${itemsDeColeccion.length === 1 ? '' : 's'}
+        </div>
+      </div>
+      ${body}
+    </section>`;
   }).join('');
-  container.innerHTML = html;
+}
 
-  // Chips de filtro dentro de cada colección sin slots
-  $$('.collection-section').forEach(section => {
-    const chips = $$('.chip', section);
-    if(!chips.length) return;
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        chips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        const filter = chip.dataset.filter;
-        $$('.item-card', section).forEach(card => {
-          const meta = card.querySelector('.item-meta').textContent;
-          card.style.display = (!filter || meta.includes(filter)) ? '' : 'none';
-        });
-      });
-    });
+/* ---------- Vista Grid (biblioteca filtrable) ---------- */
+function applyFiltersSort(baseItems){
+  let out = baseItems.filter(i => {
+    if(state.colF && i.ID_Coleccion !== state.colF) return false;
+    if(state.estadoF && i.Estado !== state.estadoF) return false;
+    if(state.marcaF && i.Marca !== state.marcaF) return false;
+    return true;
+  });
+
+  if(state.search){
+    const ids = new Set(fuse.search(state.search).map(r => r.item.ID_Item));
+    out = out.filter(i => ids.has(i.ID_Item));
+  }
+
+  const sorters = {
+    nombre: (a,b) => a.Nombre.localeCompare(b.Nombre),
+    fecha: (a,b) => new Date(b.Fecha_Agregado || 0) - new Date(a.Fecha_Agregado || 0),
+    prioridad: (a,b) => (a.Prioridad ?? 3) - (b.Prioridad ?? 3),
+    precio: (a,b) => (b.Precio ?? -Infinity) - (a.Precio ?? -Infinity),
+  };
+  out.sort(sorters[state.sort] || sorters.nombre);
+  return out;
+}
+
+function renderGrid(){
+  const filtered = applyFiltersSort(DATA.items);
+  $('#result-count').textContent = `${filtered.length} pieza${filtered.length === 1 ? '' : 's'}`;
+  if(filtered.length === 0) return `<div class="text-center py-16 text-dim">Ninguna pieza coincide con estos filtros.</div>`;
+  return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${filtered.map(i => itemCardHTML(i, {showCollection:true})).join('')}</div>`;
+}
+
+/* ---------- Vista Wishlist ---------- */
+function renderWishlist(){
+  const wishlistItems = DATA.items.filter(i => i.Estado !== 'Comprado');
+  const filtered = applyFiltersSort(wishlistItems).sort((a,b) => (a.Prioridad ?? 3) - (b.Prioridad ?? 3));
+  $('#result-count').textContent = `${filtered.length} pieza${filtered.length === 1 ? '' : 's'} en wishlist`;
+  if(filtered.length === 0) return `<div class="text-center py-16 text-dim">No hay piezas en tu wishlist todavía.</div>`;
+  return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${filtered.map(i => itemCardHTML(i, {showCollection:true, showPriority:true})).join('')}</div>`;
+}
+
+/* ---------- Render maestro de la sección "Explorar" ---------- */
+function renderView(){
+  const filterBar = $('#filter-bar');
+
+  $$('.tab-btn').forEach(btn => {
+    const active = btn.dataset.view === state.view;
+    btn.classList.toggle('border-gold', active);
+    btn.classList.toggle('text-ink', active);
+    btn.classList.toggle('border-transparent', !active);
+    btn.classList.toggle('text-dim', !active);
+  });
+
+  if(state.view === 'vitrina'){
+    filterBar.classList.add('hidden'); filterBar.classList.remove('flex');
+    $('#view-content').innerHTML = renderVitrina();
+  } else {
+    filterBar.classList.remove('hidden'); filterBar.classList.add('flex');
+    $('#filter-estado').style.display = state.view === 'wishlist' ? 'none' : '';
+    $('#view-content').innerHTML = state.view === 'wishlist' ? renderWishlist() : renderGrid();
+  }
+  lucide.createIcons();
+  bindCardClicks();
+}
+
+function bindCardClicks(){
+  $$('.item-card-btn').forEach(btn => {
+    btn.addEventListener('click', () => openModal(btn.dataset.itemId));
   });
 }
 
-/* ---------- Stats del hero ---------- */
+/* ---------- Dashboard de estadísticas ---------- */
+function renderDashboard(){
+  const total = DATA.items.length;
+  const comprados = DATA.items.filter(i => i.Estado === 'Comprado').length;
+  const wishlist = total - comprados;
+
+  const totalesPorMoneda = {};
+  DATA.items.forEach(i => {
+    if(i.Precio === null || i.Precio === undefined || isNaN(i.Precio)) return;
+    const m = i.Moneda || 'USD';
+    totalesPorMoneda[m] = (totalesPorMoneda[m] || 0) + i.Precio;
+  });
+  const valorHTML = Object.keys(totalesPorMoneda).length
+    ? Object.entries(totalesPorMoneda).map(([m, v]) =>
+        new Intl.NumberFormat('es-UY', { style:'currency', currency:m, maximumFractionDigits:0 }).format(v)
+      ).join(' + ')
+    : '—';
+
+  const porColeccion = DATA.colecciones.map(col => ({
+    col, count: DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion).length
+  })).filter(x => x.count > 0);
+  const maxCount = Math.max(1, ...porColeccion.map(x => x.count));
+
+  $('#dashboard-body').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      ${statCardHTML('Total de piezas', total, 'layers')}
+      ${statCardHTML('En wishlist', wishlist, 'heart')}
+      ${statCardHTML('Adquiridas', comprados, 'check-circle-2')}
+      ${statCardHTML('Valor estimado', valorHTML, 'wallet', true)}
+    </div>
+    <div class="border border-line bg-surface rounded-card p-6">
+      <div class="text-[0.85rem] text-dim mb-5">Piezas por colección</div>
+      <div class="space-y-3.5">
+        ${porColeccion.map(x => `
+          <div>
+            <div class="flex justify-between text-[0.82rem] mb-1.5">
+              <span>${escapeHTML(x.col.Nombre)}</span>
+              <span class="text-dim">${x.count}</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-surface2 overflow-hidden">
+              <div class="h-full rounded-full" style="width:${(x.count / maxCount) * 100}%; background:${x.col.Color}"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  lucide.createIcons();
+}
+
+function statCardHTML(label, value, icon, small){
+  return `
+  <div class="border border-line bg-surface rounded-card p-5">
+    <i data-lucide="${icon}" class="w-4 h-4 text-gold mb-4"></i>
+    <div class="font-display font-semibold ${small ? 'text-[1.05rem]' : 'text-[1.7rem]'} leading-tight">${escapeHTML(String(value))}</div>
+    <div class="text-[0.78rem] text-dim mt-1">${escapeHTML(label)}</div>
+  </div>`;
+}
+
 function renderHeroStats(){
   const total = DATA.items.length;
   const comprados = DATA.items.filter(i => i.Estado === 'Comprado').length;
   const wishlist = total - comprados;
-  const activas = DATA.colecciones.filter(c => c.Activa === 'SI').length;
   $('#hero-stats').innerHTML = `
-    <div class="hero-stat"><b>${activas}</b><span>Colecciones</span></div>
-    <div class="hero-stat"><b>${comprados}</b><span>Piezas adquiridas</span></div>
-    <div class="hero-stat"><b>${wishlist}</b><span>En wishlist</span></div>
-  `;
+    <div><b class="block font-display text-[1.5rem] font-semibold">${DATA.colecciones.length}</b><span class="text-[0.78rem] text-dim">Colecciones</span></div>
+    <div><b class="block font-display text-[1.5rem] font-semibold">${comprados}</b><span class="text-[0.78rem] text-dim">Piezas adquiridas</span></div>
+    <div><b class="block font-display text-[1.5rem] font-semibold">${wishlist}</b><span class="text-[0.78rem] text-dim">En wishlist</span></div>`;
 }
 
-/* ---------- Biblioteca (masonry + filtros) ---------- */
+/* ---------- Filtros ---------- */
 function populateFilterOptions(){
   const colSel = $('#filter-coleccion');
-  DATA.colecciones.forEach(c => {
-    colSel.insertAdjacentHTML('beforeend', `<option value="${c.ID_Coleccion}">${escapeHTML(c.Nombre_Coleccion)}</option>`);
+  colSel.innerHTML = '<option value="">Colección</option>' +
+    DATA.colecciones.map(c => `<option value="${escapeAttr(c.ID_Coleccion)}">${escapeHTML(c.Nombre)}</option>`).join('');
+
+  const marcas = [...new Set(DATA.items.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
+  $('#filter-marca').innerHTML = '<option value="">Marca</option>' +
+    marcas.map(m => `<option value="${escapeAttr(m)}">${escapeHTML(m)}</option>`).join('');
+}
+
+/* ---------- Modal de detalle + deep linking ---------- */
+function openModal(itemId){
+  const item = DATA.items.find(i => i.ID_Item === itemId);
+  if(!item) return;
+  const col = coleccionDe(item.ID_Coleccion);
+  const precio = formatPrecio(item);
+
+  $('#modal-panel').innerHTML = `
+    <button id="modal-close" class="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-bg/70 border border-line hover:border-faint">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+    <div class="grid md:grid-cols-2">
+      <div class="plate relative aspect-square md:aspect-auto flex items-center justify-center overflow-hidden bg-surface2" style="--accent:${col?.Color || '#D4AF37'}">
+        ${statusPill(item.Estado)}
+        ${itemVisualHTML(item, {big:true})}
+      </div>
+      <div class="p-6 md:p-8">
+        <div class="text-[0.78rem] font-medium mb-2" style="color:${col?.Color || '#D4AF37'}">${escapeHTML(col?.Nombre || 'General')}</div>
+        <h3 class="font-display font-bold text-[1.5rem] leading-tight">${escapeHTML(item.Nombre)}</h3>
+        <div class="text-dim text-[0.9rem] mt-1.5">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${item.Edicion_Version ? ' · ' + escapeHTML(item.Edicion_Version) : ''}</div>
+
+        <div class="flex flex-wrap gap-2 mt-4">
+          ${precio ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line">${escapeHTML(precio)}</span>` : ''}
+          ${item.Estado !== 'Comprado' ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line">Prioridad: ${PRIORIDAD_LABEL[item.Prioridad] || 'Media'}</span>` : ''}
+          ${item.Destacado ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line flex items-center gap-1"><i data-lucide="star" class="w-3 h-3 fill-gold text-gold"></i>Destacado</span>` : ''}
+        </div>
+
+        ${item.Especificaciones ? `<div class="mt-6"><div class="text-[0.75rem] text-dim mb-1.5">Especificaciones</div><p class="text-[0.92rem]">${escapeHTML(item.Especificaciones)}</p></div>` : ''}
+        ${item.Notas_Historia ? `<div class="mt-5"><div class="text-[0.75rem] text-dim mb-1.5">Historia / notas</div><p class="text-[0.92rem] text-ink/90">${escapeHTML(item.Notas_Historia)}</p></div>` : ''}
+
+        <div class="flex gap-3 mt-8">
+          ${item.Link_Referencia ? `<a href="${escapeAttr(item.Link_Referencia)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[0.85rem] px-4 py-2.5 rounded-full border border-line hover:border-faint"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Referencia</a>` : ''}
+          <button id="modal-copy-link" class="flex items-center gap-1.5 text-[0.85rem] px-4 py-2.5 rounded-full border border-line hover:border-faint">
+            <i data-lucide="link" class="w-3.5 h-3.5"></i>Copiar enlace
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  lucide.createIcons();
+  $('#modal-close').addEventListener('click', closeModal);
+  $('#modal-copy-link').addEventListener('click', () => {
+    const url = `${location.origin}${location.pathname}#item-${item.ID_Item}`;
+    navigator.clipboard.writeText(url).then(() => showToast('Enlace copiado al portapapeles.'))
+      .catch(() => showToast('No se pudo copiar el enlace.'));
   });
-  // Marca y Subcategoría se calculan según la colección elegida (ver updateDependentFilterOptions)
-  updateDependentFilterOptions();
+
+  const dialog = $('#item-modal');
+  if(!dialog.open) dialog.showModal();
+  history.replaceState(null, '', `#item-${item.ID_Item}`);
 }
 
-/* Recalcula las opciones de Marca y Subcategoría en base a la colección
-   seleccionada, para que no aparezcan subcategorías de otras colecciones
-   (ej. "Automático" de Relojes cuando se filtra por Camisetas). */
-function updateDependentFilterOptions(){
-  const colF = $('#filter-coleccion').value;
-  const relevantItems = colF ? DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === colF) : DATA.items;
-
-  const marcaSel = $('#filter-marca');
-  const subSel = $('#filter-subcategoria');
-  const marcaPrevia = marcaSel.value;
-  const subPrevia = subSel.value;
-
-  const marcas = [...new Set(relevantItems.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
-  const subcats = [...new Set(relevantItems.map(i => i.Subcategoria))].sort((a,b) => a.localeCompare(b));
-
-  marcaSel.innerHTML = '<option value="">Marca</option>' +
-    marcas.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
-  subSel.innerHTML = '<option value="">Subcategoría</option>' +
-    subcats.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
-
-  // Si el valor que tenía elegido el usuario sigue siendo válido para la
-  // colección actual, se lo dejamos puesto en vez de resetearlo.
-  if(marcas.includes(marcaPrevia)) marcaSel.value = marcaPrevia;
-  if(subcats.includes(subPrevia)) subSel.value = subPrevia;
+function closeModal(){
+  const dialog = $('#item-modal');
+  if(dialog.open) dialog.close();
+  if(location.hash.startsWith('#item-')) history.replaceState(null, '', location.pathname + location.search);
 }
 
-let searchQuery = '';
-
-function renderLibrary(){
-  const colF = $('#filter-coleccion').value;
-  const estadoF = $('#filter-estado').value;
-  const marcaF = $('#filter-marca').value;
-  const subF = $('#filter-subcategoria').value;
-
-  const filtered = DATA.items.filter(i => {
-    if(colF && coleccionDeItem(i)?.ID_Coleccion !== colF) return false;
-    if(estadoF && i.Estado !== estadoF) return false;
-    if(marcaF && i.Marca !== marcaF) return false;
-    if(subF && i.Subcategoria !== subF) return false;
-    if(searchQuery && !(`${i.Nombre} ${i.Marca}`.toLowerCase().includes(searchQuery))) return false;
-    return true;
-  });
-
-  const grid = $('#masonry-grid');
-  grid.innerHTML = filtered.length
-    ? filtered.map(i => itemCardHTML(i, {showCollection:true})).join('')
-    : `<div class="no-results">Ninguna pieza coincide con estos filtros.</div>`;
-
-  $('#result-count').textContent = `${filtered.length} pieza${filtered.length===1?'':'s'}`;
+function setupModal(){
+  const dialog = $('#item-modal');
+  dialog.addEventListener('click', e => { if(e.target === dialog) closeModal(); });
+  dialog.addEventListener('cancel', e => { e.preventDefault(); closeModal(); });
 }
 
+function checkDeepLink(){
+  const match = location.hash.match(/^#item-(.+)$/);
+  if(match) openModal(decodeURIComponent(match[1]));
+}
+
+/* ---------- Toast ---------- */
 function showToast(msg){
   const toast = $('#toast');
   toast.textContent = msg;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 4000);
+  toast.classList.remove('opacity-0', 'pointer-events-none');
+  toast.classList.add('toast-show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toast.classList.add('opacity-0', 'pointer-events-none');
+    toast.classList.remove('toast-show');
+  }, 3200);
 }
 
-/* ---------- Búsqueda del header ---------- */
+/* ---------- Búsqueda (Fuse.js) ---------- */
 function setupSearch(){
-  $('#global-search').addEventListener('keydown', e => {
-    if(e.key === 'Enter'){
-      searchQuery = e.target.value.trim().toLowerCase();
-      renderLibrary();
-      $('#biblioteca').scrollIntoView({behavior:'smooth'});
-    }
+  const input = $('#global-search');
+  let debounce;
+  input.addEventListener('input', e => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      state.search = normalizeForSearch(e.target.value);
+      if(state.view === 'vitrina' && state.search){
+        state.view = 'grid';
+      }
+      renderView();
+      if(state.search) $('#explorar').scrollIntoView({behavior:'smooth'});
+    }, 180);
   });
 }
 
-/* Recorre el JSON recibido y recorta espacios/saltos de línea invisibles
-   de todos los textos (ej. "COL_1\r\n" -> "COL_1"). Evita que un dato mal
-   copiado en la Sheet rompa comparaciones exactas en cualquier parte del
-   código (Estado, ID_Slot_Asignado, ID_Coleccion, etc.). */
+function buildFuseIndex(){
+  const withSearchField = DATA.items.map(i => ({
+    ...i,
+    _search: normalizeForSearch(`${i.Nombre} ${i.Marca} ${i.Subcategoria} ${i.Edicion_Version}`)
+  }));
+  fuse = new Fuse(withSearchField, { keys: ['_search'], threshold: 0.35, ignoreLocation: true });
+}
+
+/* ---------- Skeletons ---------- */
+function renderSkeletons(){
+  $('#hero-stats').innerHTML = Array.from({length:3}).map(() =>
+    `<div class="skel w-20 h-10 rounded-lg"></div>`).join('');
+  $('#dashboard-body').innerHTML = `<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">${
+    Array.from({length:4}).map(() => `<div class="skel h-28 rounded-card border border-line"></div>`).join('')
+  }</div>`;
+  $('#view-content').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${
+    Array.from({length:8}).map(() => `<div class="skel aspect-square rounded-card border border-line"></div>`).join('')
+  }</div>`;
+}
+
+/* ---------- Carga de datos ---------- */
 function deepTrim(value){
   if(typeof value === 'string') return value.trim();
   if(Array.isArray(value)) return value.map(deepTrim);
@@ -680,43 +631,47 @@ function deepTrim(value){
   return value;
 }
 
-/* ---------- Carga de datos desde Apps Script ---------- */
 async function fetchData(){
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
-    throw new Error('Falta configurar APPS_SCRIPT_URL en el código con la URL real de tu Web App.');
+    throw new Error('Falta configurar APPS_SCRIPT_URL con la URL real de tu Web App de Apps Script.');
   }
   const res = await fetch(APPS_SCRIPT_URL);
   if(!res.ok) throw new Error(`El servidor respondió con estado ${res.status}.`);
   const json = deepTrim(await res.json());
-  // Validación mínima de forma, para no romper el render si falta algo
+  if(json.success === false){
+    throw new Error(json.error?.message || 'El backend devolvió un error.');
+  }
+  const data = json.data || json; // compatibilidad con formato { items, slots, colecciones } plano
   return {
-    configuracion: json.configuracion || [],
-    colecciones: json.colecciones || [],
-    slots: json.slots || [],
-    items: json.items || []
+    items: data.items || [],
+    slots: data.slots || [],
+    colecciones: data.colecciones || []
   };
 }
 
 function renderErrorState(message){
-  $('#collections-container').innerHTML = `
-    <div class="error-state">
-      <p>No se pudo cargar la colección.</p>
-      <p style="margin-top:6px; font-size:0.82rem;">${escapeHTML(message)}</p>
-      <button id="retry-fetch">Reintentar</button>
+  $('#view-content').innerHTML = `
+    <div class="text-center py-16 border border-line bg-surface rounded-card">
+      <p class="text-dim">No se pudo cargar la colección.</p>
+      <p class="text-[0.82rem] text-faint mt-1.5">${escapeHTML(message)}</p>
+      <button id="retry-fetch" class="mt-4 text-[0.85rem] text-gold border border-gold/40 px-4 py-2 rounded-full hover:bg-gold/10">Reintentar</button>
     </div>`;
+  $('#dashboard-body').innerHTML = '';
   $('#footer-status').textContent = 'Sin conexión con la base de datos';
   $('#retry-fetch').addEventListener('click', boot);
 }
 
 /* ---------- Init ---------- */
 async function boot(){
-  $('#collections-container').innerHTML = `<div class="loading-state pulse">Cargando tu colección…</div>`;
+  renderSkeletons();
   try{
     DATA = await fetchData();
+    buildFuseIndex();
     renderHeroStats();
-    renderCollections();
+    renderDashboard();
     populateFilterOptions();
-    renderLibrary();
+    renderView();
+    checkDeepLink();
     $('#footer-status').textContent = 'Conectado a Google Sheets';
   }catch(err){
     console.error(err);
@@ -726,14 +681,19 @@ async function boot(){
 }
 
 function init(){
+  lucide.createIcons();
   setupSearch();
+  setupModal();
 
-  $('#filter-coleccion').addEventListener('change', () => {
-    updateDependentFilterOptions();
-    renderLibrary();
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => { state.view = btn.dataset.view; renderView(); });
   });
-  $$('#filter-estado, #filter-marca, #filter-subcategoria')
-    .forEach(sel => sel.addEventListener('change', renderLibrary));
+  $('#filter-coleccion').addEventListener('change', e => { state.colF = e.target.value; renderView(); });
+  $('#filter-estado').addEventListener('change', e => { state.estadoF = e.target.value; renderView(); });
+  $('#filter-marca').addEventListener('change', e => { state.marcaF = e.target.value; renderView(); });
+  $('#filter-sort').addEventListener('change', e => { state.sort = e.target.value; renderView(); });
+
+  window.addEventListener('hashchange', checkDeepLink);
 
   boot();
 }
