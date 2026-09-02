@@ -1,704 +1,352 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="antialiased text-ink bg-bg scroll-smooth selection:bg-gold selection:text-bg">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Collection Hub</title>
-<meta name="description" content="Tu galería personal de colecciones.">
-
+<title>Collection Hub V3 — Production Scale</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
 
 <script>
   tailwind.config = {
     theme: {
       extend: {
         colors: {
-          bg: '#121212',
-          surface: '#1B1B1B',
-          surface2: '#171717',
-          line: '#2C2C2C',
-          ink: '#F2F1EC',
-          dim: '#8C8C86',
-          faint: '#5B5B57',
-          gold: '#D4AF37',
+          bg: '#0E0E10', surface: '#18181B', surface2: '#27272A',
+          line: '#3F3F46', ink: '#FAFAFA', dim: '#A1A1AA',
+          gold: '#EAB308', emerald: '#10B981'
         },
         fontFamily: {
           sans: ['Inter', 'sans-serif'],
           display: ['"Inter Tight"', 'sans-serif'],
-        },
-        borderRadius: { card: '14px' },
+        }
       }
     }
   };
 </script>
 
 <style>
-  :root{ --accent:#D4AF37; }
-  *{ scrollbar-color: #2C2C2C transparent; }
-  html{ scroll-behavior:smooth; }
-  body{ -webkit-font-smoothing:antialiased; }
-  ::selection{ background:var(--accent); color:#121212; }
-  :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
-
-  @media (prefers-reduced-motion: reduce){
-    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
-    html{ scroll-behavior:auto; }
-  }
-
-  .hscroll::-webkit-scrollbar{ height:5px; }
-  .hscroll::-webkit-scrollbar-thumb{ background:#2C2C2C; border-radius:10px; }
-
-  @keyframes heroIn{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:translateY(0);} }
-  .hero-in{ animation:heroIn .9s cubic-bezier(.22,.61,.36,1) .1s both; }
-
-  @keyframes toastIn{ from{ opacity:0; transform:translate(-50%,10px);} to{ opacity:1; transform:translate(-50%,0);} }
-  .toast-show{ animation:toastIn .25s cubic-bezier(.22,.61,.36,1) both; }
-
-  .skel{ position:relative; overflow:hidden; background:#1B1B1B; }
-  .skel::after{
-    content:''; position:absolute; inset:0; transform:translateX(-100%);
-    background:linear-gradient(90deg, transparent, rgba(255,255,255,.045), transparent);
-    animation:shimmer 1.6s infinite;
-  }
-  @keyframes shimmer{ 100%{ transform:translateX(100%); } }
-
-  .card-hover{ transition:transform .25s cubic-bezier(.22,.61,.36,1), border-color .25s cubic-bezier(.22,.61,.36,1); }
-  .card-hover:hover{ transform:translateY(-4px); }
-  .plate img, .plate svg{ transition:transform .35s cubic-bezier(.22,.61,.36,1); }
-  .card-hover:hover .plate img, .card-hover:hover .plate svg{ transform:scale(1.08); }
-
-  dialog#item-modal{ background:transparent; max-width:none; max-height:none; width:100%; height:100%; margin:0; padding:0; }
-  dialog#item-modal::backdrop{ background:rgba(10,10,10,.7); backdrop-filter:blur(3px); }
-  dialog#item-modal[open]{ display:flex; align-items:center; justify-content:center; }
-
-  details.dash > summary{ list-style:none; }
-  details.dash > summary::-webkit-details-marker{ display:none; }
-  details.dash[open] .chev{ transform:rotate(180deg); }
+  :root { --accent: #EAB308; }
+  body { overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #0E0E10; }
+  ::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 4px; }
+  
+  .glass { background: rgba(24, 24, 27, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .card { transition: border-color 0.3s ease, transform 0.3s cubic-bezier(0.23, 1, 0.32, 1); border: 1px solid rgba(255,255,255,0.06); }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--accent) 15%, transparent); }
+  
+  @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .modal-enter { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
 </style>
 </head>
-<body class="bg-bg text-ink font-sans leading-relaxed">
+<body class="text-sm">
 
-<!-- ================= HEADER ================= -->
-<header class="sticky top-0 z-40 flex items-center justify-between gap-4 px-5 md:px-8 py-4 bg-bg/80 backdrop-blur-md border-b border-line">
-  <a href="#inicio" class="flex items-center gap-2 font-display font-bold tracking-tight text-[1.05rem] shrink-0">
-    <span class="w-2.5 h-2.5 rounded-full block" style="background:linear-gradient(135deg,#D4AF37,#4F8EF7 50%,#FF6B35)"></span>
-    Collection Hub
-  </a>
-  <nav class="hidden md:flex gap-8 text-[0.88rem] text-dim">
-    <a href="#inicio" class="hover:text-ink transition-colors">Inicio</a>
-    <a href="#explorar" class="hover:text-ink transition-colors">Explorar</a>
-    <a href="#dashboard" class="hover:text-ink transition-colors">Estadísticas</a>
-  </nav>
-  <div class="flex items-center gap-2 bg-surface border border-line rounded-full pl-3 pr-2 py-1.5 focus-within:border-faint transition-colors">
-    <i data-lucide="search" class="w-3.5 h-3.5 text-dim shrink-0"></i>
-    <input id="global-search" type="text" placeholder="Buscar pieza…"
-      class="bg-transparent border-none text-[0.85rem] w-24 sm:w-40 outline-none placeholder:text-faint">
+<header class="fixed top-0 w-full z-40 glass px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-2 font-display font-semibold text-lg tracking-tight">
+    <div class="w-3 h-3 rounded-sm bg-gradient-to-br from-gold to-orange-500 shadow-[0_0_12px_rgba(234,179,8,0.4)]"></div>
+    Collection Hub <span class="text-xs px-2 py-0.5 bg-surface2 rounded text-gold font-mono border border-line">V3 Scale</span>
+  </div>
+  <div class="relative group">
+    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dim group-focus-within:text-gold transition-colors"></i>
+    <input id="searchInput" type="text" placeholder="Buscar 100k+ ítems (⌘K)" class="bg-surface2/50 border border-line rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-gold transition-all w-48 focus:w-72">
   </div>
 </header>
 
-<!-- ================= HERO ================= -->
-<section id="inicio" class="hero-in min-h-[64vh] flex flex-col justify-center px-5 md:px-8 max-w-3xl py-16">
-  <div class="text-[0.8rem] text-dim mb-4">Tu galería personal</div>
-  <h1 class="font-display font-bold text-[clamp(2.2rem,6vw,4.2rem)] leading-[1.05] max-w-[11ch]">
-    Cada pieza, en su lugar. Cada colección, su sala.
-  </h1>
-  <p class="mt-5 max-w-[46ch] text-[1.02rem] text-dim">
-    Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés y lo que estás esperando conseguir, colección por colección.
-  </p>
-  <div id="hero-stats" class="flex flex-wrap gap-8 md:gap-10 mt-10"></div>
-</section>
+<main class="pt-28 px-6 max-w-7xl mx-auto min-h-screen flex flex-col">
+  <section class="mb-8">
+    <h1 class="font-display font-bold text-4xl tracking-tight mb-2">Archivo Centralizado.</h1>
+    <p class="text-dim text-base mb-6" id="statsLabel">Sincronizando motor de alta escala...</p>
+    
+    <div class="flex gap-4 border-b border-line pb-px" id="tabs">
+      <button data-tab="all" class="px-1.5 py-3 border-b-2 border-gold text-ink font-medium transition-colors cursor-pointer">Todo el archivo</button>
+      <button data-tab="wishlist" class="px-1.5 py-3 border-b-2 border-transparent text-dim hover:text-ink transition-colors cursor-pointer">Radar (Wishlist)</button>
+    </div>
+  </section>
 
-<!-- ================= DASHBOARD ================= -->
-<section id="dashboard" class="border-t border-line px-5 md:px-8 py-10">
-  <details class="dash" open>
-    <summary class="flex items-center justify-between cursor-pointer select-none">
-      <div>
-        <div class="flex items-center gap-2 text-[0.78rem] text-gold font-medium mb-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>Panel
-        </div>
-        <h2 class="font-display font-bold text-[clamp(1.4rem,2.6vw,1.9rem)]">Estadísticas de la colección</h2>
-      </div>
-      <i data-lucide="chevron-down" class="chev w-5 h-5 text-dim transition-transform duration-200"></i>
-    </summary>
-    <div id="dashboard-body" class="mt-8"></div>
-  </details>
-</section>
+  <section class="flex flex-wrap items-center gap-3 mb-6">
+    <select id="colFilter" class="bg-surface border border-line rounded-lg px-3 py-2 outline-none focus:border-gold cursor-pointer text-sm">
+      <option value="ALL">Todas las colecciones</option>
+    </select>
+  </section>
 
-<!-- ================= EXPLORAR (tabs) ================= -->
-<section id="explorar" class="border-t border-line px-5 md:px-8 py-14">
-  <div class="max-w-[560px] mb-8">
-    <h2 class="font-display font-bold text-[clamp(1.6rem,3vw,2.3rem)]">Explorar colección</h2>
-    <p class="mt-3 text-dim text-[0.96rem]">Cambiá de vista, filtrá y ordená lo que buscás.</p>
+  <div id="virtualContainer" class="relative flex-1 w-full overflow-y-auto" style="height: 70vh;">
+    <div id="virtualSpacer" class="absolute top-0 left-0 w-full"></div>
+    <div id="gridItemsLayer" class="absolute top-0 left-0 w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
   </div>
+</main>
 
-  <div class="flex gap-2 mb-8 border-b border-line" id="view-tabs">
-    <button data-view="vitrina" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Vitrina</button>
-    <button data-view="grid" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Todas las piezas</button>
-    <button data-view="wishlist" class="tab-btn px-4 py-2.5 text-[0.86rem] border-b-2 -mb-px transition-colors">Wishlist</button>
+<dialog id="detailModal" class="ml-auto mr-0 h-full max-h-screen w-full max-w-xl bg-surface border-l border-line p-0 shadow-2xl m-0 backdrop:bg-black/60">
+  <div class="h-full flex flex-col modal-enter relative">
+    <button id="closeModalBtn" class="absolute top-6 right-6 z-20 p-2 bg-black/50 backdrop-blur-md rounded-full hover:bg-black/80 transition-colors text-white border border-white/10 cursor-pointer">
+      <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+    
+    <div class="w-full h-80 bg-surface2 relative overflow-hidden shrink-0 flex items-center justify-center" id="modalGallery"></div>
+
+    <div class="p-8 overflow-y-auto hide-scrollbar flex-1">
+      <div id="modalTags" class="flex flex-wrap gap-2 mb-3"></div>
+      <h2 id="modalTitle" class="font-display font-bold text-2xl mb-1 leading-tight"></h2>
+      <p id="modalBrand" class="text-dim text-sm mb-6"></p>
+
+      <div class="grid grid-cols-2 gap-4 mb-6" id="modalUniversalAttr"></div>
+
+      <div class="h-px w-full bg-line mb-6"></div>
+      
+      <h3 class="text-xs font-semibold text-dim uppercase tracking-wider mb-4">Especificaciones Técnicas</h3>
+      <div class="flex flex-col gap-3 mb-8" id="modalDynamicAttr"></div>
+
+      <h3 class="text-xs font-semibold text-dim uppercase tracking-wider mb-4">Historial de la Pieza</h3>
+      <div class="border-l border-line pl-4 ml-2 flex flex-col gap-6" id="modalTimeline"></div>
+    </div>
   </div>
-
-  <!-- filtros: solo visibles en grid / wishlist -->
-  <div id="filter-bar" class="hidden flex-wrap gap-2.5 items-center mb-8 pb-6 border-b border-line">
-    <select id="filter-coleccion" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
-      <option value="">Colección</option>
-    </select>
-    <select id="filter-estado" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
-      <option value="">Estado</option>
-      <option value="Comprado">Comprado</option>
-      <option value="En Wishlist">En Wishlist</option>
-    </select>
-    <select id="filter-marca" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
-      <option value="">Marca</option>
-    </select>
-    <select id="filter-sort" class="bg-surface border border-line rounded-lg text-[0.82rem] px-3 py-2 hover:border-faint">
-      <option value="nombre">Ordenar: Nombre</option>
-      <option value="fecha">Ordenar: Más recientes</option>
-      <option value="prioridad">Ordenar: Prioridad</option>
-      <option value="precio">Ordenar: Precio (mayor a menor)</option>
-    </select>
-    <span id="result-count" class="ml-auto text-[0.8rem] text-dim"></span>
-  </div>
-
-  <div id="view-content"></div>
-</section>
-
-<footer class="px-5 md:px-8 py-8 border-t border-line flex flex-wrap justify-between gap-3 text-[0.8rem] text-faint">
-  <span>Collection Hub</span>
-  <span id="footer-status">Conectando con la base de datos…</span>
-</footer>
-
-<!-- ================= MODAL DETALLE ================= -->
-<dialog id="item-modal" class="p-4 md:p-8">
-  <div class="bg-surface border border-line rounded-card w-full max-w-3xl max-h-[88vh] overflow-y-auto relative" id="modal-panel"></div>
 </dialog>
 
-<div id="toast" class="fixed bottom-7 left-1/2 -translate-x-1/2 bg-surface border border-line rounded-xl px-5 py-3 text-[0.85rem] max-w-[80vw] text-center opacity-0 pointer-events-none z-50"></div>
-
 <script>
-/* ============================================================
-   CONFIGURACIÓN
-   ============================================================ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTOdICTMOUTvTepfVY1tIICK_zz7WFtVBz2m4wjLabw36RsnH21b4GV6PMNnuvBlus_Q/exec'; // TODO: reemplazar por tu URL real de Apps Script
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbx6b49psU1S4PwQ6mRT2tu4FOdK-Px7-PH7H9zWNNYde0-88I1Csq4nReb8_0Dm3z0gow/exec' 
+};
 
-let DATA = { items: [], slots: [], colecciones: [] };
-let fuse = null;
+let appState = {
+  rawItems: [],
+  filteredItems: [],
+  colecciones: [],
+  activeTab: 'all',
+  activeCollection: 'ALL',
+  searchQuery: '',
+  worker: null
+};
 
-const state = { view: 'vitrina', colF: '', estadoF: '', marcaF: '', search: '', sort: 'nombre' };
-
-const ICONS = { watch: 'watch', shoe: 'footprints', jersey: 'shirt', book: 'book', gem: 'gem', default: 'package' };
-const PRIORIDAD_LABEL = { 1: 'Alta', 2: 'Media', 3: 'Baja' };
-
-const $ = (sel, ctx = document) => ctx.querySelector(sel);
-const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-
-/* ---------- utilidades ---------- */
-function escapeHTML(str = ''){
-  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function escapeAttr(str = ''){ return escapeHTML(str).replace(/`/g, '&#96;'); }
-
-function normalizeForSearch(str = ''){
-  return String(str ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-}
-
-function coleccionDe(idColeccion){
-  return DATA.colecciones.find(c => c.ID_Coleccion === idColeccion);
-}
-
-function formatPrecio(item){
-  if(item.Precio === null || item.Precio === undefined || isNaN(item.Precio)) return null;
-  try{
-    return new Intl.NumberFormat('es-UY', { style:'currency', currency: item.Moneda || 'USD', maximumFractionDigits:0 }).format(item.Precio);
-  }catch(e){
-    return `${item.Precio} ${item.Moneda || ''}`.trim();
-  }
-}
-
-function iconSvg(name, cls){
-  return `<i data-lucide="${ICONS[name] || ICONS.default}" class="${cls}"></i>`;
-}
-
-/* ---------- Drive URL → link directo, con fallback si falla ---------- */
-function convertDriveUrl(url){
-  if(!url) return '';
-  url = String(url).trim();
-  if(!url) return '';
-  if(/drive\.google\.com\/uc\?/.test(url) && /[?&]id=/.test(url)) return url;
-
-  const looksLikeBareId = /^[a-zA-Z0-9_-]{20,}$/.test(url);
-  if(!/drive\.google\.com/.test(url) && !looksLikeBareId) return url;
-
-  const patterns = [/\/file\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/];
-  let fileId = '';
-  for(const p of patterns){ const m = url.match(p); if(m){ fileId = m[1]; break; } }
-  if(!fileId && looksLikeBareId) fileId = url;
-  return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
-}
-
-/* Visual de una pieza: <img> con respaldo de ícono siempre presente en el DOM
-   (nunca se reemplaza markup en caliente, solo se alternan display). */
-function itemVisualHTML(item, opts = {}){
-  const col = coleccionDe(item.ID_Coleccion);
-  const size = opts.big ? 'w-2/5 h-2/5' : 'w-9 h-9';
-  const rawUrl = item.URL_Imagen;
-  const imgUrl = convertDriveUrl(rawUrl);
-  const iconHTML = `<div class="fallback-icon absolute inset-0 flex items-center justify-center" style="${imgUrl ? 'display:none' : ''}">${iconSvg(col?.Icono, `${size} text-[color:var(--accent)] opacity-80`)}</div>`;
-  const imgHTML = imgUrl
-    ? `<img src="${escapeAttr(imgUrl)}" alt="${escapeAttr(item.Nombre)}" loading="lazy" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
-    : '';
-  return imgHTML + iconHTML;
-}
-
-function statusPill(estado){
-  const owned = estado === 'Comprado';
-  return `<span class="absolute top-2.5 right-2.5 z-10 text-[0.65rem] px-2.5 py-1 rounded-full backdrop-blur-sm border ${owned ? 'text-emerald-300 border-emerald-800 bg-emerald-950/40' : 'text-amber-200 border-amber-800 bg-amber-950/30'}">${escapeHTML(estado)}</span>`;
-}
-
-/* ---------- Tarjeta de ítem (grid / wishlist / biblioteca) ---------- */
-function itemCardHTML(item, opts = {}){
-  const col = coleccionDe(item.ID_Coleccion);
-  const precio = formatPrecio(item);
-  return `
-  <button data-item-id="${escapeAttr(item.ID_Item)}" class="item-card-btn card-hover text-left border border-line bg-surface rounded-card overflow-hidden block w-full" style="--accent:${col?.Color || '#D4AF37'}">
-    <div class="plate relative aspect-square flex items-center justify-center overflow-hidden bg-surface2">
-      ${item.Destacado ? '<span class="absolute top-2.5 left-2.5 z-10"><i data-lucide="star" class="w-3.5 h-3.5 text-gold fill-gold"></i></span>' : ''}
-      ${statusPill(item.Estado)}
-      ${itemVisualHTML(item)}
-    </div>
-    <div class="p-3.5">
-      <div class="text-[0.94rem] font-medium truncate">${escapeHTML(item.Nombre)}</div>
-      <div class="text-[0.78rem] text-dim mt-0.5 truncate">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${opts.showCollection ? ' · ' + escapeHTML(col?.Nombre || '') : ''}</div>
-      <div class="flex items-center justify-between mt-2">
-        ${precio ? `<span class="text-[0.8rem] text-ink/90">${escapeHTML(precio)}</span>` : '<span></span>'}
-        ${opts.showPriority && item.Estado !== 'Comprado' ? `<span class="text-[0.68rem] px-2 py-0.5 rounded-full border border-line text-dim">${PRIORIDAD_LABEL[item.Prioridad] || 'Media'}</span>` : ''}
-      </div>
-    </div>
-  </button>`;
-}
-
-/* ---------- Vista Vitrina (por colección: slots o grid) ---------- */
-function vitrinaSlotCardHTML(col, slot, item){
-  if(!item){
-    return `
-    <div class="flex-none w-56 snap-start border border-line bg-surface rounded-card overflow-hidden opacity-70">
-      <div class="plate relative aspect-[1/1.05] flex items-center justify-center bg-surface2">${iconSvg(col.Icono, 'w-9 h-9 text-faint')}</div>
-      <div class="p-3.5">
-        <div class="text-[0.7rem] text-gold font-medium mb-1">${escapeHTML(slot.Nombre_Slot)}</div>
-        <div class="text-[0.92rem] text-faint">Sin equipar</div>
-      </div>
-    </div>`;
-  }
-  return `
-  <button data-item-id="${escapeAttr(item.ID_Item)}" class="item-card-btn card-hover flex-none w-56 snap-start text-left border border-line bg-surface rounded-card overflow-hidden block" style="--accent:${col.Color}">
-    <div class="plate relative aspect-[1/1.05] flex items-center justify-center overflow-hidden bg-surface2">
-      ${statusPill(item.Estado)}
-      ${itemVisualHTML(item)}
-    </div>
-    <div class="p-3.5">
-      <div class="text-[0.7rem] text-gold font-medium mb-1">${escapeHTML(slot.Nombre_Slot)}</div>
-      <div class="text-[0.96rem] font-medium">${escapeHTML(item.Nombre)}</div>
-      <div class="text-[0.8rem] text-dim mt-0.5">${escapeHTML(item.Marca)}</div>
-    </div>
-  </button>`;
-}
-
-function renderVitrina(){
-  const activas = DATA.colecciones;
-  if(activas.length === 0) return `<div class="text-center py-16 text-dim">Todavía no hay colecciones cargadas.</div>`;
-
-  return activas.map(col => {
-    const itemsDeColeccion = DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion);
-    const slotsDeColeccion = DATA.slots.filter(s => s.ID_Coleccion === col.ID_Coleccion).sort((a,b) => a.Orden - b.Orden);
-
-    let body;
-    if(itemsDeColeccion.length === 0){
-      body = `<div class="border border-line bg-surface rounded-card p-14 text-center">
-                <p class="text-[1rem]">Todavía no hay piezas acá.</p>
-                <p class="text-[0.88rem] text-dim mt-1.5">Cuando cargues la primera fila en la Sheet, va a aparecer en esta sala.</p>
-              </div>`;
-    } else if(slotsDeColeccion.length > 0){
-      const cards = slotsDeColeccion.map(slot => {
-        const item = itemsDeColeccion.find(i => i.ID_Slot_Asignado === slot.ID_Slot);
-        return vitrinaSlotCardHTML(col, slot, item);
-      }).join('');
-      body = `<div class="flex gap-4 overflow-x-auto pb-2 hscroll snap-x snap-proximity">${cards}</div>`;
-    } else {
-      body = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${itemsDeColeccion.map(i => itemCardHTML(i)).join('')}</div>`;
+function initWorker() {
+  const blob = new Blob([document.getElementById('workerCode').textContent], { type: 'application/javascript' });
+  appState.worker = new Worker(URL.createObjectURL(blob));
+  
+  appState.worker.onmessage = (e) => {
+    const { type, data } = e.data;
+    if (type === 'READY') {
+      applyFilters();
+    } else if (type === 'RESULTS') {
+      appState.filteredItems = data;
+      renderVirtualGrid();
     }
-
-    return `
-    <section class="mb-16 relative" style="--accent:${col.Color}">
-      <div class="flex justify-between items-end gap-6 mb-7">
-        <div class="max-w-[560px]">
-          <div class="flex items-center gap-2 text-[0.78rem] mb-3 font-medium" style="color:var(--accent)">
-            <span class="w-1.5 h-1.5 rounded-full" style="background:var(--accent)"></span>Colección
-          </div>
-          <h3 class="font-display font-bold text-[clamp(1.5rem,3vw,2.1rem)]">${escapeHTML(col.Nombre)}</h3>
-          <p class="text-dim mt-2 text-[0.94rem]">${escapeHTML(col.Descripcion)}</p>
-        </div>
-        <div class="text-right shrink-0 text-[0.78rem] text-dim">
-          <b class="block font-display text-[1.9rem] font-semibold text-ink">${itemsDeColeccion.length}</b>
-          pieza${itemsDeColeccion.length === 1 ? '' : 's'}
-        </div>
-      </div>
-      ${body}
-    </section>`;
-  }).join('');
-}
-
-/* ---------- Vista Grid (biblioteca filtrable) ---------- */
-function applyFiltersSort(baseItems){
-  let out = baseItems.filter(i => {
-    if(state.colF && i.ID_Coleccion !== state.colF) return false;
-    if(state.estadoF && i.Estado !== state.estadoF) return false;
-    if(state.marcaF && i.Marca !== state.marcaF) return false;
-    return true;
-  });
-
-  if(state.search){
-    const ids = new Set(fuse.search(state.search).map(r => r.item.ID_Item));
-    out = out.filter(i => ids.has(i.ID_Item));
-  }
-
-  const sorters = {
-    nombre: (a,b) => a.Nombre.localeCompare(b.Nombre),
-    fecha: (a,b) => new Date(b.Fecha_Agregado || 0) - new Date(a.Fecha_Agregado || 0),
-    prioridad: (a,b) => (a.Prioridad ?? 3) - (b.Prioridad ?? 3),
-    precio: (a,b) => (b.Precio ?? -Infinity) - (a.Precio ?? -Infinity),
   };
-  out.sort(sorters[state.sort] || sorters.nombre);
-  return out;
 }
 
-function renderGrid(){
-  const filtered = applyFiltersSort(DATA.items);
-  $('#result-count').textContent = `${filtered.length} pieza${filtered.length === 1 ? '' : 's'}`;
-  if(filtered.length === 0) return `<div class="text-center py-16 text-dim">Ninguna pieza coincide con estos filtros.</div>`;
-  return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${filtered.map(i => itemCardHTML(i, {showCollection:true})).join('')}</div>`;
-}
+async function initApp() {
+  initWorker();
+  try {
+    const res = await fetch(CONFIG.API_URL);
+    const json = await res.json();
+    if (!json.success) throw new Error("Fallo en la respuesta del backend");
+    
+    appState.colecciones = json.data.colecciones;
+    appState.rawItems = json.data.items;
+    
+    document.getElementById('statsLabel').innerHTML = `Gestionando <b class="text-ink">${appState.rawItems.length}</b> artículos con motor V3 optimizado.`;
+    
+    const colSelect = document.getElementById('colFilter');
+    colSelect.innerHTML = `<option value="ALL">Todas las colecciones</option>` + 
+      appState.colecciones.map(c => `<option value="${c.ID_Coleccion}">${c.Nombre}</option>`).join('');
 
-/* ---------- Vista Wishlist ---------- */
-function renderWishlist(){
-  const wishlistItems = DATA.items.filter(i => i.Estado !== 'Comprado');
-  const filtered = applyFiltersSort(wishlistItems).sort((a,b) => (a.Prioridad ?? 3) - (b.Prioridad ?? 3));
-  $('#result-count').textContent = `${filtered.length} pieza${filtered.length === 1 ? '' : 's'} en wishlist`;
-  if(filtered.length === 0) return `<div class="text-center py-16 text-dim">No hay piezas en tu wishlist todavía.</div>`;
-  return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${filtered.map(i => itemCardHTML(i, {showCollection:true, showPriority:true})).join('')}</div>`;
-}
-
-/* ---------- Render maestro de la sección "Explorar" ---------- */
-function renderView(){
-  const filterBar = $('#filter-bar');
-
-  $$('.tab-btn').forEach(btn => {
-    const active = btn.dataset.view === state.view;
-    btn.classList.toggle('border-gold', active);
-    btn.classList.toggle('text-ink', active);
-    btn.classList.toggle('border-transparent', !active);
-    btn.classList.toggle('text-dim', !active);
-  });
-
-  if(state.view === 'vitrina'){
-    filterBar.classList.add('hidden'); filterBar.classList.remove('flex');
-    $('#view-content').innerHTML = renderVitrina();
-  } else {
-    filterBar.classList.remove('hidden'); filterBar.classList.add('flex');
-    $('#filter-estado').style.display = state.view === 'wishlist' ? 'none' : '';
-    $('#view-content').innerHTML = state.view === 'wishlist' ? renderWishlist() : renderGrid();
+    appState.worker.postMessage({ type: 'INIT', payload: { items: appState.rawItems } });
+    setupEvents();
+  } catch (err) {
+    document.getElementById('statsLabel').textContent = "Error conectando con la base de datos materializada.";
   }
+}
+
+function applyFilters() {
+  let items = appState.rawItems;
+  if (appState.activeTab === 'wishlist') items = items.filter(i => i.estado !== 'Comprado');
+  if (appState.activeCollection !== 'ALL') items = items.filter(i => i.id_coleccion === appState.activeCollection);
+  
+  appState.filteredItems = items;
+  renderVirtualGrid();
+}
+
+const ROW_HEIGHT = 380;
+const COLS_COUNT = 4;
+
+function renderVirtualGrid() {
+  const container = document.getElementById('virtualContainer');
+  const spacer = document.getElementById('virtualSpacer');
+  const layer = document.getElementById('gridItemsLayer');
+  
+  const totalRows = Math.ceil(appState.filteredItems.length / COLS_COUNT);
+  spacer.style.height = `${totalRows * ROW_HEIGHT}px`;
+
+  const scrollTop = container.scrollTop;
+  const viewportHeight = container.clientHeight;
+  
+  const startRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 1);
+  const endRow = Math.min(totalRows, startRow + Math.ceil(viewportHeight / ROW_HEIGHT) + 2);
+  
+  layer.style.transform = `translateY(${startRow * ROW_HEIGHT}px)`;
+  layer.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  for (let r = startRow; r < endRow; r++) {
+    for (let c = 0; c < COLS_COUNT; c++) {
+      const idx = r * COLS_COUNT + c;
+      if (idx >= appState.filteredItems.length) break;
+      
+      const item = appState.filteredItems[idx];
+      const col = appState.colecciones.find(x => x.ID_Coleccion === item.id_coleccion) || {};
+      const card = createCardElement(item, col);
+      fragment.appendChild(card);
+    }
+  }
+  layer.appendChild(fragment);
   lucide.createIcons();
-  bindCardClicks();
 }
 
-function bindCardClicks(){
-  $$('.item-card-btn').forEach(btn => {
-    btn.addEventListener('click', () => openModal(btn.dataset.itemId));
-  });
-}
+function createCardElement(item, col) {
+  const color = col.Color || '#EAB308';
+  const isOwned = item.estado === 'Comprado';
+  const mainImg = item.imagenes[0] || '';
 
-/* ---------- Dashboard de estadísticas ---------- */
-function renderDashboard(){
-  const total = DATA.items.length;
-  const comprados = DATA.items.filter(i => i.Estado === 'Comprado').length;
-  const wishlist = total - comprados;
+  const article = document.createElement('article');
+  article.className = 'card bg-surface rounded-2xl overflow-hidden cursor-pointer flex flex-col h-[350px]';
+  article.style.setProperty('--accent', color);
+  article.onclick = () => openModal(item);
 
-  const totalesPorMoneda = {};
-  DATA.items.forEach(i => {
-    if(i.Precio === null || i.Precio === undefined || isNaN(i.Precio)) return;
-    const m = i.Moneda || 'USD';
-    totalesPorMoneda[m] = (totalesPorMoneda[m] || 0) + i.Precio;
-  });
-  const valorHTML = Object.keys(totalesPorMoneda).length
-    ? Object.entries(totalesPorMoneda).map(([m, v]) =>
-        new Intl.NumberFormat('es-UY', { style:'currency', currency:m, maximumFractionDigits:0 }).format(v)
-      ).join(' + ')
-    : '—';
-
-  const porColeccion = DATA.colecciones.map(col => ({
-    col, count: DATA.items.filter(i => i.ID_Coleccion === col.ID_Coleccion).length
-  })).filter(x => x.count > 0);
-  const maxCount = Math.max(1, ...porColeccion.map(x => x.count));
-
-  $('#dashboard-body').innerHTML = `
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-      ${statCardHTML('Total de piezas', total, 'layers')}
-      ${statCardHTML('En wishlist', wishlist, 'heart')}
-      ${statCardHTML('Adquiridas', comprados, 'check-circle-2')}
-      ${statCardHTML('Valor estimado', valorHTML, 'wallet', true)}
+  article.innerHTML = `
+    <div class="relative aspect-[4/3] bg-surface2 overflow-hidden flex items-center justify-center">
+      ${item.destacado ? `<div class="absolute top-3 left-3 z-10 w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]"></div>` : ''}
+      <div class="absolute top-3 right-3 z-10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider rounded-full backdrop-blur-md border ${isOwned ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50' : 'bg-surface/50 text-dim border-line'}">
+        ${item.estado}
+      </div>
+      ${mainImg ? `<img src="${mainImg}" loading="lazy" class="w-full h-full object-cover">` : `<i data-lucide="${col.Icono || 'box'}" class="w-10 h-10 text-line opacity-50"></i>`}
     </div>
-    <div class="border border-line bg-surface rounded-card p-6">
-      <div class="text-[0.85rem] text-dim mb-5">Piezas por colección</div>
-      <div class="space-y-3.5">
-        ${porColeccion.map(x => `
-          <div>
-            <div class="flex justify-between text-[0.82rem] mb-1.5">
-              <span>${escapeHTML(x.col.Nombre)}</span>
-              <span class="text-dim">${x.count}</span>
-            </div>
-            <div class="h-1.5 rounded-full bg-surface2 overflow-hidden">
-              <div class="h-full rounded-full" style="width:${(x.count / maxCount) * 100}%; background:${x.col.Color}"></div>
-            </div>
-          </div>`).join('')}
+    <div class="p-4 flex-1 flex flex-col justify-between">
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-wider mb-1" style="color: var(--accent)">${col.Nombre || 'General'}</div>
+        <h3 class="font-display font-semibold text-sm leading-snug mb-1 line-clamp-1">${item.nombre}</h3>
+        <p class="text-dim text-xs line-clamp-1">${item.marca}</p>
       </div>
-    </div>`;
-  lucide.createIcons();
-}
-
-function statCardHTML(label, value, icon, small){
-  return `
-  <div class="border border-line bg-surface rounded-card p-5">
-    <i data-lucide="${icon}" class="w-4 h-4 text-gold mb-4"></i>
-    <div class="font-display font-semibold ${small ? 'text-[1.05rem]' : 'text-[1.7rem]'} leading-tight">${escapeHTML(String(value))}</div>
-    <div class="text-[0.78rem] text-dim mt-1">${escapeHTML(label)}</div>
-  </div>`;
-}
-
-function renderHeroStats(){
-  const total = DATA.items.length;
-  const comprados = DATA.items.filter(i => i.Estado === 'Comprado').length;
-  const wishlist = total - comprados;
-  $('#hero-stats').innerHTML = `
-    <div><b class="block font-display text-[1.5rem] font-semibold">${DATA.colecciones.length}</b><span class="text-[0.78rem] text-dim">Colecciones</span></div>
-    <div><b class="block font-display text-[1.5rem] font-semibold">${comprados}</b><span class="text-[0.78rem] text-dim">Piezas adquiridas</span></div>
-    <div><b class="block font-display text-[1.5rem] font-semibold">${wishlist}</b><span class="text-[0.78rem] text-dim">En wishlist</span></div>`;
-}
-
-/* ---------- Filtros ---------- */
-function populateFilterOptions(){
-  const colSel = $('#filter-coleccion');
-  colSel.innerHTML = '<option value="">Colección</option>' +
-    DATA.colecciones.map(c => `<option value="${escapeAttr(c.ID_Coleccion)}">${escapeHTML(c.Nombre)}</option>`).join('');
-
-  const marcas = [...new Set(DATA.items.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
-  $('#filter-marca').innerHTML = '<option value="">Marca</option>' +
-    marcas.map(m => `<option value="${escapeAttr(m)}">${escapeHTML(m)}</option>`).join('');
-}
-
-/* ---------- Modal de detalle + deep linking ---------- */
-function openModal(itemId){
-  const item = DATA.items.find(i => i.ID_Item === itemId);
-  if(!item) return;
-  const col = coleccionDe(item.ID_Coleccion);
-  const precio = formatPrecio(item);
-
-  $('#modal-panel').innerHTML = `
-    <button id="modal-close" class="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-bg/70 border border-line hover:border-faint">
-      <i data-lucide="x" class="w-4 h-4"></i>
-    </button>
-    <div class="grid md:grid-cols-2">
-      <div class="plate relative aspect-square md:aspect-auto flex items-center justify-center overflow-hidden bg-surface2" style="--accent:${col?.Color || '#D4AF37'}">
-        ${statusPill(item.Estado)}
-        ${itemVisualHTML(item, {big:true})}
+      <div class="text-sm font-medium">
+        ${item.precio ? new Intl.NumberFormat('es-UY', {style:'currency', currency: item.moneda, maximumFractionDigits:0}).format(item.precio) : '—'}
       </div>
-      <div class="p-6 md:p-8">
-        <div class="text-[0.78rem] font-medium mb-2" style="color:${col?.Color || '#D4AF37'}">${escapeHTML(col?.Nombre || 'General')}</div>
-        <h3 class="font-display font-bold text-[1.5rem] leading-tight">${escapeHTML(item.Nombre)}</h3>
-        <div class="text-dim text-[0.9rem] mt-1.5">${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${item.Edicion_Version ? ' · ' + escapeHTML(item.Edicion_Version) : ''}</div>
+    </div>
+  `;
+  return article;
+}
 
-        <div class="flex flex-wrap gap-2 mt-4">
-          ${precio ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line">${escapeHTML(precio)}</span>` : ''}
-          ${item.Estado !== 'Comprado' ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line">Prioridad: ${PRIORIDAD_LABEL[item.Prioridad] || 'Media'}</span>` : ''}
-          ${item.Destacado ? `<span class="text-[0.8rem] px-3 py-1 rounded-full border border-line flex items-center gap-1"><i data-lucide="star" class="w-3 h-3 fill-gold text-gold"></i>Destacado</span>` : ''}
-        </div>
+function openModal(item) {
+  const dialog = document.getElementById('detailModal');
+  const col = appState.colecciones.find(c => c.ID_Coleccion === item.id_coleccion) || {};
+  
+  const gallery = document.getElementById('modalGallery');
+  if (item.imagenes.length > 0) {
+    gallery.innerHTML = `<img src="${item.imagenes[0]}" class="w-full h-full object-cover" id="activeModalImg">`;
+  } else {
+    gallery.innerHTML = `<i data-lucide="${col.Icono || 'box'}" class="w-20 h-20 text-line opacity-30"></i>`;
+  }
 
-        ${item.Especificaciones ? `<div class="mt-6"><div class="text-[0.75rem] text-dim mb-1.5">Especificaciones</div><p class="text-[0.92rem]">${escapeHTML(item.Especificaciones)}</p></div>` : ''}
-        ${item.Notas_Historia ? `<div class="mt-5"><div class="text-[0.75rem] text-dim mb-1.5">Historia / notas</div><p class="text-[0.92rem] text-ink/90">${escapeHTML(item.Notas_Historia)}</p></div>` : ''}
+  document.getElementById('modalTitle').textContent = item.nombre;
+  document.getElementById('modalBrand').textContent = item.marca;
 
-        <div class="flex gap-3 mt-8">
-          ${item.Link_Referencia ? `<a href="${escapeAttr(item.Link_Referencia)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[0.85rem] px-4 py-2.5 rounded-full border border-line hover:border-faint"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Referencia</a>` : ''}
-          <button id="modal-copy-link" class="flex items-center gap-1.5 text-[0.85rem] px-4 py-2.5 rounded-full border border-line hover:border-faint">
-            <i data-lucide="link" class="w-3.5 h-3.5"></i>Copiar enlace
-          </button>
-        </div>
-      </div>
-    </div>`;
-
-  lucide.createIcons();
-  $('#modal-close').addEventListener('click', closeModal);
-  $('#modal-copy-link').addEventListener('click', () => {
-    const url = `${location.origin}${location.pathname}#item-${item.ID_Item}`;
-    navigator.clipboard.writeText(url).then(() => showToast('Enlace copiado al portapapeles.'))
-      .catch(() => showToast('No se pudo copiar el enlace.'));
+  const tagsContainer = document.getElementById('modalTags');
+  tagsContainer.innerHTML = `<span class="px-2 py-0.5 text-xs rounded border border-line" style="color: ${col.Color || '#FFF'}">${col.Nombre}</span>`;
+  item.etiquetas.forEach(t => {
+    tagsContainer.innerHTML += `<span class="px-2 py-0.5 text-xs rounded bg-surface2 border border-line" style="color: ${t.color}">${t.nombre}</span>`;
   });
 
-  const dialog = $('#item-modal');
-  if(!dialog.open) dialog.showModal();
-  history.replaceState(null, '', `#item-${item.ID_Item}`);
+  document.getElementById('modalUniversalAttr').innerHTML = `
+    <div class="bg-surface2 p-3 rounded-xl border border-line">
+      <div class="text-[10px] text-dim uppercase tracking-wider mb-1">Estado</div>
+      <div class="font-medium ${item.estado==='Comprado' ? 'text-emerald-400' : 'text-ink'}">${item.estado}</div>
+    </div>
+    <div class="bg-surface2 p-3 rounded-xl border border-line">
+      <div class="text-[10px] text-dim uppercase tracking-wider mb-1">Valoración</div>
+      <div class="font-medium">${item.precio ? new Intl.NumberFormat('es-UY', {style:'currency', currency: item.moneda}).format(item.precio) : '—'}</div>
+    </div>
+  `;
+
+  const dynContainer = document.getElementById('modalDynamicAttr');
+  dynContainer.innerHTML = item.atributos.length ? item.atributos.map(a => `
+    <div class="flex gap-3 items-center bg-surface2/50 p-2.5 rounded-lg border border-line">
+      <i data-lucide="${a.icono || 'info'}" class="w-4 h-4 text-dim shrink-0"></i>
+      <div class="flex-1 flex justify-between text-xs">
+        <span class="text-dim">${a.nombre}</span>
+        <span class="font-medium text-ink">${a.valor}</span>
+      </div>
+    </div>
+  `).join('') : `<p class="text-dim text-xs italic">Sin atributos registrados.</p>`;
+
+  const timeline = document.getElementById('modalTimeline');
+  timeline.innerHTML = item.historial.length ? item.historial.map(h => `
+    <div class="relative pl-3">
+      <div class="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-gold"></div>
+      <div class="text-[10px] text-gold font-mono mb-0.5">${h.fecha}</div>
+      <div class="text-xs font-semibold text-ink">${h.evento}</div>
+      <div class="text-xs text-dim">${h.descripcion}</div>
+    </div>
+  `).join('') : `<p class="text-dim text-xs italic">Sin eventos en el historial.</p>`;
+
+  lucide.createIcons();
+  dialog.showModal();
 }
 
-function closeModal(){
-  const dialog = $('#item-modal');
-  if(dialog.open) dialog.close();
-  if(location.hash.startsWith('#item-')) history.replaceState(null, '', location.pathname + location.search);
-}
-
-function setupModal(){
-  const dialog = $('#item-modal');
-  dialog.addEventListener('click', e => { if(e.target === dialog) closeModal(); });
-  dialog.addEventListener('cancel', e => { e.preventDefault(); closeModal(); });
-}
-
-function checkDeepLink(){
-  const match = location.hash.match(/^#item-(.+)$/);
-  if(match) openModal(decodeURIComponent(match[1]));
-}
-
-/* ---------- Toast ---------- */
-function showToast(msg){
-  const toast = $('#toast');
-  toast.textContent = msg;
-  toast.classList.remove('opacity-0', 'pointer-events-none');
-  toast.classList.add('toast-show');
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => {
-    toast.classList.add('opacity-0', 'pointer-events-none');
-    toast.classList.remove('toast-show');
-  }, 3200);
-}
-
-/* ---------- Búsqueda (Fuse.js) ---------- */
-function setupSearch(){
-  const input = $('#global-search');
-  let debounce;
-  input.addEventListener('input', e => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      state.search = normalizeForSearch(e.target.value);
-      if(state.view === 'vitrina' && state.search){
-        state.view = 'grid';
-      }
-      renderView();
-      if(state.search) $('#explorar').scrollIntoView({behavior:'smooth'});
-    }, 180);
+function setupEvents() {
+  document.getElementById('virtualContainer').addEventListener('scroll', () => {
+    requestAnimationFrame(renderVirtualGrid);
   });
-}
 
-function buildFuseIndex(){
-  const withSearchField = DATA.items.map(i => ({
-    ...i,
-    _search: normalizeForSearch(`${i.Nombre} ${i.Marca} ${i.Subcategoria} ${i.Edicion_Version}`)
-  }));
-  fuse = new Fuse(withSearchField, { keys: ['_search'], threshold: 0.35, ignoreLocation: true });
-}
+  document.querySelectorAll('#tabs button').forEach(btn => {
+    btn.onclick = (e) => {
+      document.querySelectorAll('#tabs button').forEach(b => {
+        b.className = 'px-1.5 py-3 border-b-2 border-transparent text-dim hover:text-ink transition-colors cursor-pointer';
+      });
+      e.target.className = 'px-1.5 py-3 border-b-2 border-gold text-ink font-medium transition-colors cursor-pointer';
+      appState.activeTab = e.target.dataset.tab;
+      applyFilters();
+    };
+  });
 
-/* ---------- Skeletons ---------- */
-function renderSkeletons(){
-  $('#hero-stats').innerHTML = Array.from({length:3}).map(() =>
-    `<div class="skel w-20 h-10 rounded-lg"></div>`).join('');
-  $('#dashboard-body').innerHTML = `<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">${
-    Array.from({length:4}).map(() => `<div class="skel h-28 rounded-card border border-line"></div>`).join('')
-  }</div>`;
-  $('#view-content').innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">${
-    Array.from({length:8}).map(() => `<div class="skel aspect-square rounded-card border border-line"></div>`).join('')
-  }</div>`;
-}
-
-/* ---------- Carga de datos ---------- */
-function deepTrim(value){
-  if(typeof value === 'string') return value.trim();
-  if(Array.isArray(value)) return value.map(deepTrim);
-  if(value && typeof value === 'object'){
-    const out = {};
-    for(const k in value) out[k] = deepTrim(value[k]);
-    return out;
-  }
-  return value;
-}
-
-async function fetchData(){
-  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'){
-    throw new Error('Falta configurar APPS_SCRIPT_URL con la URL real de tu Web App de Apps Script.');
-  }
-  const res = await fetch(APPS_SCRIPT_URL);
-  if(!res.ok) throw new Error(`El servidor respondió con estado ${res.status}.`);
-  const json = deepTrim(await res.json());
-  if(json.success === false){
-    throw new Error(json.error?.message || 'El backend devolvió un error.');
-  }
-  const data = json.data || json; // compatibilidad con formato { items, slots, colecciones } plano
-  return {
-    items: data.items || [],
-    slots: data.slots || [],
-    colecciones: data.colecciones || []
+  document.getElementById('colFilter').onchange = (e) => {
+    appState.activeCollection = e.target.value;
+    applyFilters();
   };
+
+  let searchTimeout;
+  document.getElementById('searchInput').oninput = (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value;
+    searchTimeout = setTimeout(() => {
+      if (!query) {
+        applyFilters();
+      } else {
+        appState.worker.postMessage({ type: 'SEARCH', payload: { query } });
+      }
+    }, 250);
+  };
+
+  const dialog = document.getElementById('detailModal');
+  document.getElementById('closeModalBtn').onclick = () => dialog.close();
+  dialog.onclick = (e) => { if(e.target === dialog) dialog.close(); };
 }
 
-function renderErrorState(message){
-  $('#view-content').innerHTML = `
-    <div class="text-center py-16 border border-line bg-surface rounded-card">
-      <p class="text-dim">No se pudo cargar la colección.</p>
-      <p class="text-[0.82rem] text-faint mt-1.5">${escapeHTML(message)}</p>
-      <button id="retry-fetch" class="mt-4 text-[0.85rem] text-gold border border-gold/40 px-4 py-2 rounded-full hover:bg-gold/10">Reintentar</button>
-    </div>`;
-  $('#dashboard-body').innerHTML = '';
-  $('#footer-status').textContent = 'Sin conexión con la base de datos';
-  $('#retry-fetch').addEventListener('click', boot);
-}
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
 
-/* ---------- Init ---------- */
-async function boot(){
-  renderSkeletons();
-  try{
-    DATA = await fetchData();
-    buildFuseIndex();
-    renderHeroStats();
-    renderDashboard();
-    populateFilterOptions();
-    renderView();
-    checkDeepLink();
-    $('#footer-status').textContent = 'Conectado a Google Sheets';
-  }catch(err){
-    console.error(err);
-    renderErrorState(err.message || 'Error desconocido al conectar con Apps Script.');
-    showToast('No se pudo conectar con la base de datos.');
+<script id="workerCode" type="text/plain">
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js');
+let fuse = null;
+self.onmessage = function(e) {
+  const { type, payload } = e.data;
+  if (type === 'INIT') {
+    fuse = new Fuse(payload.items, { keys: ['nombre', 'marca', 'etiquetas.nombre', 'atributos.valor', 'estado'], threshold: 0.3 });
+    self.postMessage({ type: 'READY' });
+  } else if (type === 'SEARCH' && fuse) {
+    self.postMessage({ type: 'RESULTS', data: fuse.search(payload.query).map(r => r.item) });
   }
-}
-
-function init(){
-  lucide.createIcons();
-  setupSearch();
-  setupModal();
-
-  $$('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => { state.view = btn.dataset.view; renderView(); });
-  });
-  $('#filter-coleccion').addEventListener('change', e => { state.colF = e.target.value; renderView(); });
-  $('#filter-estado').addEventListener('change', e => { state.estadoF = e.target.value; renderView(); });
-  $('#filter-marca').addEventListener('change', e => { state.marcaF = e.target.value; renderView(); });
-  $('#filter-sort').addEventListener('change', e => { state.sort = e.target.value; renderView(); });
-
-  window.addEventListener('hashchange', checkDeepLink);
-
-  boot();
-}
-
-document.addEventListener('DOMContentLoaded', init);
+};
 </script>
 </body>
 </html>
