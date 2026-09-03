@@ -146,6 +146,9 @@
     <select id="filter-marca" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
       <option value="">Marca</option>
     </select>
+    <select id="filter-etiqueta" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+      <option value="">Etiqueta</option>
+    </select>
     <select id="filter-orden" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
       <option value="nombre">Ordenar: Nombre</option>
       <option value="fecha">Ordenar: Fecha</option>
@@ -453,6 +456,7 @@ function getFilteredItems({ forceWishlist=false } = {}){
   const colF = $('#filter-coleccion').value;
   const estadoF = forceWishlist ? 'En Wishlist' : $('#filter-estado').value;
   const marcaF = $('#filter-marca').value;
+  const etiquetaF = $('#filter-etiqueta').value;
   const ordenF = $('#filter-orden').value;
 
   let base = DATA.items;
@@ -466,6 +470,7 @@ function getFilteredItems({ forceWishlist=false } = {}){
     if(colF && coleccionDeItem(i)?.ID_Coleccion !== colF) return false;
     if(estadoF && i.Estado !== estadoF) return false;
     if(marcaF && i.Marca !== marcaF) return false;
+    if(etiquetaF && !(i.Etiquetas || []).includes(etiquetaF)) return false;
     return true;
   });
 
@@ -594,19 +599,25 @@ function updateDependentFilterOptions(){
   const marcas = [...new Set(relevantItems.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
   marcaSel.innerHTML = '<option value="">Marca</option>' + marcas.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
   if(marcas.includes(marcaPrevia)) marcaSel.value = marcaPrevia;
+
+  const etiquetaSel = $('#filter-etiqueta');
+  const etiquetaPrevia = etiquetaSel.value;
+  const etiquetas = [...new Set(relevantItems.flatMap(i => i.Etiquetas || []))].sort((a,b) => a.localeCompare(b));
+  etiquetaSel.innerHTML = '<option value="">Etiqueta</option>' + etiquetas.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
+  if(etiquetas.includes(etiquetaPrevia)) etiquetaSel.value = etiquetaPrevia;
 }
 
 function buildSearchIndex(){
   const searchable = DATA.items.map(i => ({
     ...i,
-    _blob: stripAccents(`${i.Nombre} ${i.Marca} ${i.Subcategoria}`.toLowerCase())
+    _blob: stripAccents(`${i.Nombre} ${i.Marca} ${i.Subcategoria} ${(i.Etiquetas || []).join(' ')}`.toLowerCase())
   }));
   fuse = new Fuse(searchable, { keys:['_blob'], threshold:0.35, ignoreLocation:true });
 }
 
 function setupFilters(){
   $('#filter-coleccion').addEventListener('change', () => { updateDependentFilterOptions(); renderActiveTab(); });
-  $$('#filter-estado, #filter-marca, #filter-orden').forEach(sel => sel.addEventListener('change', renderActiveTab));
+  $$('#filter-estado, #filter-marca, #filter-etiqueta, #filter-orden').forEach(sel => sel.addEventListener('change', renderActiveTab));
 }
 
 function setupSearch(){
@@ -654,6 +665,7 @@ function openModal(itemId){
         <span class="text-[0.72rem] px-2.5 py-1 rounded-full border ${item.Estado==='Comprado' ? 'text-[#8FD19E] border-[#2C4A32]' : 'text-[#E0C170] border-[#4A3F22]'}">${escapeHTML(item.Estado)}</span>
         ${col ? `<span class="text-[0.72rem] px-2.5 py-1 rounded-full border border-border" style="color:${col.Color}">${escapeHTML(col.Nombre)}</span>` : ''}
         <span class="text-[0.72rem] px-2.5 py-1 rounded-full border border-border text-textdim">${escapeHTML(item.Subcategoria)}</span>
+        ${(item.Etiquetas || []).map(t => `<button type="button" class="tag-pill text-[0.72rem] px-2.5 py-1 rounded-full border border-border text-textdim hover:border-textfaint transition-colors" data-tag="${escapeHTML(t)}" title="Ver todas las piezas con esta etiqueta">#${escapeHTML(t)}</button>`).join('')}
       </div>
       <h3 class="font-display font-bold text-2xl">${escapeHTML(item.Nombre)}</h3>
       <p class="text-textdim text-[0.95rem] mt-1">${escapeHTML(item.Marca)}${item.Edicion_Version ? ' · ' + escapeHTML(item.Edicion_Version) : ''}</p>
@@ -677,6 +689,14 @@ function openModal(itemId){
 
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-copy-link').addEventListener('click', copyDeepLink);
+  $$('.tag-pill', $('#modal-body')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal();
+      $('#filter-etiqueta').value = btn.dataset.tag;
+      switchTab('grid');
+      $('#explorar').scrollIntoView({behavior:'smooth'});
+    });
+  });
 }
 
 function closeModal(){
