@@ -142,6 +142,8 @@
       <option value="">Estado</option>
       <option value="Comprado">Comprado</option>
       <option value="En Wishlist">En Wishlist</option>
+      <option value="Vendido">Vendido</option>
+      <option value="Regalado">Regalado</option>
     </select>
     <select id="filter-marca" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
       <option value="">Marca</option>
@@ -155,7 +157,11 @@
       <option value="prioridad">Ordenar: Prioridad</option>
       <option value="precio">Ordenar: Precio</option>
     </select>
-    <span id="result-count" class="ml-auto text-[0.8rem] text-textdim"></span>
+    <button id="share-view" type="button" title="Copiar un enlace a esta vista filtrada"
+            class="ml-auto flex items-center gap-1.5 text-[0.8rem] px-3 py-1.5 rounded-lg border border-border hover:border-textfaint transition-colors">
+      <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Compartir vista
+    </button>
+    <span id="result-count" class="text-[0.8rem] text-textdim"></span>
   </div>
 
   <div id="tab-content"></div>
@@ -278,6 +284,18 @@ function prioridadDots(prioridad){
     ).join('') + `</span>`;
 }
 
+/* Colores del badge de Estado. Comprado/Wishlist ya existian; Vendido y
+   Regalado son estados "historicos" — se distinguen con su propio color
+   para que no se confundan con lo que tenes actualmente. */
+function estadoBadgeClass(estado){
+  switch(estado){
+    case 'Comprado': return 'text-[#8FD19E] border-[#2C4A32]';
+    case 'Vendido': return 'text-[#7FB0D6] border-[#233A4A]';
+    case 'Regalado': return 'text-[#C99FE0] border-[#3A2C4A]';
+    default: return 'text-[#E0C170] border-[#4A3F22]'; // En Wishlist
+  }
+}
+
 /* ---------- Defensa contra datos corruptos: colección "General" ---------- */
 function ensureGeneralCollection(){
   DATA.items.forEach(i => { if(!coleccionDeItem(i)) i.ID_Coleccion = 'GENERAL'; });
@@ -296,7 +314,6 @@ function ensureGeneralCollection(){
    ============================================================ */
 function itemCardHTML(item, opts={}){
   const col = coleccionDeItem(item);
-  const estadoClass = item.Estado === 'Comprado' ? 'text-[#8FD19E] border-[#2C4A32]' : 'text-[#E0C170] border-[#4A3F22]';
   const precio = formatPrecio(item.Precio, item.Moneda);
 
   return `
@@ -304,14 +321,14 @@ function itemCardHTML(item, opts={}){
             class="item-card group text-left border border-border bg-surface rounded-2xl overflow-hidden transition-all duration-250 hover:-translate-y-1"
             style="--accent:${col?.Color || '#D4AF37'}; border-color:var(--border)">
       <div class="plate-glow relative aspect-square flex items-center justify-center overflow-hidden">
-        <span class="absolute top-2.5 right-2.5 z-10 text-[0.62rem] px-2 py-1 rounded-full bg-black/60 border ${estadoClass} backdrop-blur-sm">${escapeHTML(item.Estado)}</span>
+        <span class="absolute top-2.5 right-2.5 z-10 text-[0.62rem] px-2 py-1 rounded-full bg-black/60 border ${estadoBadgeClass(item.Estado)} backdrop-blur-sm">${escapeHTML(item.Estado)}</span>
         ${item.Destacado ? `<span class="absolute top-2.5 left-2.5 z-10"><i data-lucide="sparkles" class="w-3.5 h-3.5" style="color:var(--accent)"></i></span>` : ''}
         ${itemVisualHTML(col, item)}
       </div>
       <div class="p-3.5">
         <div class="text-[0.94rem] font-medium truncate">${escapeHTML(item.Nombre)}</div>
         <div class="text-[0.78rem] text-textdim mt-0.5 truncate">
-          ${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${opts.showCollection && col ? ' · ' + escapeHTML(col.Nombre) : ''}
+          ${escapeHTML(item.Marca)} · ${escapeHTML(item.Subcategoria)}${item.Talla ? ' · Talla ' + escapeHTML(item.Talla) : ''}${opts.showCollection && col ? ' · ' + escapeHTML(col.Nombre) : ''}
         </div>
         <div class="flex items-center justify-between mt-2">
           <span class="text-[0.78rem] text-textdim">${precio}</span>
@@ -357,7 +374,7 @@ function vitrineHTML(coleccion, slotsDeColeccion, itemsDeColeccion){
       <button type="button" data-item-id="${escapeHTML(item.ID_Item)}"
               class="item-card group flex-none w-56 snap-start text-left border border-border bg-surface rounded-2xl overflow-hidden transition-transform duration-250 hover:-translate-y-1">
         <div class="plate-glow relative aspect-[1/1.05] flex items-center justify-center overflow-hidden">
-          <span class="absolute top-2.5 right-2.5 z-10 text-[0.62rem] px-2 py-1 rounded-full bg-black/60 border text-[#8FD19E] border-[#2C4A32] backdrop-blur-sm">Comprado</span>
+          <span class="absolute top-2.5 right-2.5 z-10 text-[0.62rem] px-2 py-1 rounded-full bg-black/60 border ${estadoBadgeClass(item.Estado)} backdrop-blur-sm">${escapeHTML(item.Estado)}</span>
           ${itemVisualHTML(coleccion, item)}
         </div>
         <div class="p-3.5">
@@ -400,7 +417,12 @@ function renderVitrinaTab(container){
   }
 
   container.innerHTML = activas.map(col => {
-    const itemsDeColeccion = DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion);
+    // Vendido/Regalado son historicos: no ocupan lugar en la Vitrina
+    // (que muestra tu coleccion actual + lo que estas esperando conseguir).
+    const itemsDeColeccion = DATA.items.filter(i =>
+      coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion &&
+      i.Estado !== 'Vendido' && i.Estado !== 'Regalado'
+    );
     const slotsDeColeccion = DATA.slots
       .filter(s => normalizeKey(s.ID_Coleccion) === normalizeKey(col.ID_Coleccion))
       .sort((a,b) => a.Orden - b.Orden);
@@ -468,7 +490,13 @@ function getFilteredItems({ forceWishlist=false } = {}){
 
   let filtered = base.filter(i => {
     if(colF && coleccionDeItem(i)?.ID_Coleccion !== colF) return false;
-    if(estadoF && i.Estado !== estadoF) return false;
+    if(estadoF){
+      if(i.Estado !== estadoF) return false;
+    } else if(i.Estado === 'Vendido' || i.Estado === 'Regalado'){
+      // Sin un filtro de Estado explicito, no mezclamos lo vendido/regalado
+      // con la vista "actual" — se ven a proposito eligiendo ese Estado.
+      return false;
+    }
     if(marcaF && i.Marca !== marcaF) return false;
     if(etiquetaF && !(i.Etiquetas || []).includes(etiquetaF)) return false;
     return true;
@@ -525,6 +553,7 @@ function switchTab(tab){
   $('#filter-bar').classList.toggle('flex', tab !== 'vitrina');
   $('#filter-estado').closest('select').style.display = tab === 'wishlist' ? 'none' : '';
   renderActiveTab();
+  syncURLWithFilters();
 }
 
 function renderActiveTab(){
@@ -538,9 +567,11 @@ function renderActiveTab(){
    PANEL DE ESTADÍSTICAS
    ============================================================ */
 function renderStats(){
-  const total = DATA.items.length;
-  const comprados = DATA.items.filter(i => i.Estado === 'Comprado');
-  const wishlist = DATA.items.filter(i => i.Estado === 'En Wishlist');
+  const vendidosRegalados = DATA.items.filter(i => i.Estado === 'Vendido' || i.Estado === 'Regalado');
+  const activosItems = DATA.items.filter(i => i.Estado !== 'Vendido' && i.Estado !== 'Regalado');
+  const total = activosItems.length;
+  const comprados = activosItems.filter(i => i.Estado === 'Comprado');
+  const wishlist = activosItems.filter(i => i.Estado === 'En Wishlist');
   const activas = DATA.colecciones.filter(c => c.Activa);
 
   const sumarPorMoneda = (items) => {
@@ -550,7 +581,7 @@ function renderStats(){
   };
 
   const desglose = activas.map(col => {
-    const n = DATA.items.filter(i => coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion).length;
+    const n = activosItems.filter(i => coleccionDeItem(i)?.ID_Coleccion === col.ID_Coleccion).length;
     const pct = total ? Math.round((n/total)*100) : 0;
     return `
       <div class="flex items-center gap-3">
@@ -563,10 +594,11 @@ function renderStats(){
   }).join('');
 
   $('#stats-content').innerHTML = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
       <div><div class="font-display font-semibold text-2xl">${total}</div><div class="text-[0.78rem] text-textdim">Piezas totales</div></div>
       <div><div class="font-display font-semibold text-2xl">${comprados.length}</div><div class="text-[0.78rem] text-textdim">Adquiridas</div></div>
       <div><div class="font-display font-semibold text-2xl">${wishlist.length}</div><div class="text-[0.78rem] text-textdim">En wishlist</div></div>
+      <div><div class="font-display font-semibold text-2xl">${vendidosRegalados.length}</div><div class="text-[0.78rem] text-textdim">Vendidas / regaladas</div></div>
       <div><div class="font-display font-semibold text-2xl">${activas.length}</div><div class="text-[0.78rem] text-textdim">Colecciones</div></div>
     </div>
     <div class="grid md:grid-cols-2 gap-6 pt-2 border-t border-border">
@@ -616,8 +648,58 @@ function buildSearchIndex(){
 }
 
 function setupFilters(){
-  $('#filter-coleccion').addEventListener('change', () => { updateDependentFilterOptions(); renderActiveTab(); });
-  $$('#filter-estado, #filter-marca, #filter-etiqueta, #filter-orden').forEach(sel => sel.addEventListener('change', renderActiveTab));
+  $('#filter-coleccion').addEventListener('change', () => { updateDependentFilterOptions(); renderActiveTab(); syncURLWithFilters(); });
+  $$('#filter-estado, #filter-marca, #filter-etiqueta, #filter-orden').forEach(sel =>
+    sel.addEventListener('change', () => { renderActiveTab(); syncURLWithFilters(); })
+  );
+  $('#share-view').addEventListener('click', copyViewLink);
+}
+
+/* ============================================================
+   VISTA COMPARTIBLE (filtros + pestaña reflejados en la URL)
+   ============================================================ */
+function syncURLWithFilters(){
+  const params = new URLSearchParams();
+  if(activeTab !== 'vitrina') params.set('tab', activeTab);
+  const col = $('#filter-coleccion').value; if(col) params.set('col', col);
+  if(activeTab !== 'wishlist'){
+    const estado = $('#filter-estado').value; if(estado) params.set('estado', estado);
+  }
+  const marca = $('#filter-marca').value; if(marca) params.set('marca', marca);
+  const etiqueta = $('#filter-etiqueta').value; if(etiqueta) params.set('etiqueta', etiqueta);
+
+  const qs = params.toString();
+  const newUrl = location.pathname + (qs ? `?${qs}` : '') + location.hash;
+  history.replaceState(null, '', newUrl);
+}
+
+/* Lee los filtros de la URL al cargar la pagina y devuelve la pestaña
+   inicial que corresponde. Se llama una sola vez, en boot(). */
+function applyFiltersFromURL(){
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab');
+  const col = params.get('col');
+  const estado = params.get('estado');
+  const marca = params.get('marca');
+  const etiqueta = params.get('etiqueta');
+
+  if(col && $$('#filter-coleccion option').some(o => o.value === col)){
+    $('#filter-coleccion').value = col;
+  }
+  updateDependentFilterOptions();
+
+  if(estado) $('#filter-estado').value = estado;
+  if(marca && $$('#filter-marca option').some(o => o.value === marca)) $('#filter-marca').value = marca;
+  if(etiqueta && $$('#filter-etiqueta option').some(o => o.value === etiqueta)) $('#filter-etiqueta').value = etiqueta;
+
+  return (tab === 'grid' || tab === 'wishlist') ? tab : 'vitrina';
+}
+
+function copyViewLink(){
+  const url = `${location.origin}${location.pathname}${location.search}`;
+  navigator.clipboard.writeText(url)
+    .then(() => showToast('Enlace de esta vista copiado.'))
+    .catch(() => showToast('No se pudo copiar el enlace.'));
 }
 
 function setupSearch(){
@@ -662,18 +744,17 @@ function openModal(itemId){
     </div>
     <div class="p-6 md:p-7">
       <div class="flex flex-wrap gap-2 mb-4">
-        <span class="text-[0.72rem] px-2.5 py-1 rounded-full border ${item.Estado==='Comprado' ? 'text-[#8FD19E] border-[#2C4A32]' : 'text-[#E0C170] border-[#4A3F22]'}">${escapeHTML(item.Estado)}</span>
+        <span class="text-[0.72rem] px-2.5 py-1 rounded-full border ${estadoBadgeClass(item.Estado)}">${escapeHTML(item.Estado)}</span>
         ${col ? `<span class="text-[0.72rem] px-2.5 py-1 rounded-full border border-border" style="color:${col.Color}">${escapeHTML(col.Nombre)}</span>` : ''}
         <span class="text-[0.72rem] px-2.5 py-1 rounded-full border border-border text-textdim">${escapeHTML(item.Subcategoria)}</span>
         ${(item.Etiquetas || []).map(t => `<button type="button" class="tag-pill text-[0.72rem] px-2.5 py-1 rounded-full border border-border text-textdim hover:border-textfaint transition-colors" data-tag="${escapeHTML(t)}" title="Ver todas las piezas con esta etiqueta">#${escapeHTML(t)}</button>`).join('')}
       </div>
       <h3 class="font-display font-bold text-2xl">${escapeHTML(item.Nombre)}</h3>
-      <p class="text-textdim text-[0.95rem] mt-1">${escapeHTML(item.Marca)}${item.Edicion_Version ? ' · ' + escapeHTML(item.Edicion_Version) : ''}</p>
+      <p class="text-textdim text-[0.95rem] mt-1">${escapeHTML(item.Marca)}${item.Edicion_Version ? ' · ' + escapeHTML(item.Edicion_Version) : ''}${item.Talla ? ' · Talla ' + escapeHTML(item.Talla) : ''}</p>
 
       ${item.Precio ? `<p class="mt-3 text-[0.95rem]">${formatPrecio(item.Precio, item.Moneda)}</p>` : ''}
 
-      ${item.Especificaciones ? `<div class="mt-5"><div class="text-[0.78rem] text-textdim mb-1">Especificaciones</div><p class="text-[0.92rem]">${escapeMultiline(item.Especificaciones)}</p></div>` : ''}
-      ${item.Notas_Historia ? `<div class="mt-4"><div class="text-[0.78rem] text-textdim mb-1">Notas</div><p class="text-[0.92rem]">${escapeMultiline(item.Notas_Historia)}</p></div>` : ''}
+      ${item.Descripcion ? `<div class="mt-5"><div class="text-[0.78rem] text-textdim mb-1">Descripción</div><p class="text-[0.92rem]">${escapeMultiline(item.Descripcion)}</p></div>` : ''}
 
       <div class="flex flex-wrap gap-2.5 mt-6 pt-5 border-t border-border">
         ${item.Link_Referencia ? `<a href="${escapeHTML(item.Link_Referencia)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[0.85rem] px-4 py-2 rounded-full border border-border hover:border-textfaint transition-colors"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Ver referencia</a>` : ''}
@@ -773,7 +854,8 @@ async function boot(){
     buildSearchIndex();
     renderStats();
     populateFilterOptions();
-    switchTab(activeTab);
+    const initialTab = applyFiltersFromURL();
+    switchTab(initialTab);
     openFromHash();
     $('#footer-status').textContent = 'Conectado a Google Sheets';
   }catch(err){
