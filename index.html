@@ -72,6 +72,12 @@
   .details-chevron{ transition:transform .25s ease; }
   details[open] .details-chevron{ transform:rotate(180deg); }
   summary::-webkit-details-marker{ display:none; }
+
+  /* Visor de fotos del modal: el spin debe responder al instante al
+     arrastrar (sin fundido), la galeria simple usa un fundido suave. */
+  .spin-frame{ transition:none; }
+  .gallery-frame{ transition:opacity .2s ease; }
+  #spin-handle{ transition:left .03s linear; }
 </style>
 </head>
 <body class="bg-bg text-text font-sans antialiased leading-relaxed">
@@ -261,9 +267,9 @@ function convertDriveUrl(url){
   return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
 }
 
-/* Visual de una pieza: foto real (con fallback si falla) o ícono. */
+/* Visual de una pieza en tarjeta chica: primera foto (con fallback si falla) o ícono. */
 function itemVisualHTML(coleccion, item){
-  const imgUrl = convertDriveUrl(item?.URL_Imagen);
+  const imgUrl = convertDriveUrl((item?.URL_Imagenes || [])[0]);
   const fallback = `<i data-lucide="${iconFor(coleccion?.Icono)}" class="w-8 h-8" style="color:color-mix(in srgb, var(--accent) 70%, white 10%)"></i>`;
   if(!imgUrl) return fallback;
   return `<img src="${imgUrl}" alt="${escapeHTML(item.Nombre)}" loading="lazy" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onerror="this.outerHTML = ${JSON.stringify(fallback)};">`;
@@ -720,6 +726,128 @@ function setupTabs(){
 }
 
 /* ============================================================
+   VISOR DE FOTOS DEL MODAL — galería simple o "spin" tipo StockX
+   ============================================================ */
+const SPIN_MIN_PHOTOS = 9;    // minimo de fotos reales para activar el modo spin
+const SPIN_TOTAL_FRAMES = 36; // como StockX: 1 foto cada 10 grados
+
+/* Reparte N fotos reales (en el orden en que se cargaron) a lo largo
+   de SPIN_TOTAL_FRAMES posiciones. La primera foto siempre cae en la
+   posicion 0 (extremo izquierdo del slider) y la ultima en la posicion
+   final (extremo derecho); el resto se reparte parejo entre medio.
+   Las posiciones sin foto quedan en null ("hueco en blanco": no se
+   dibuja ninguna imagen ahi, se ve el fondo de la ficha). */
+function buildSpinFrames(urls){
+  const frames = new Array(SPIN_TOTAL_FRAMES).fill(null);
+  const n = urls.length;
+  let lastSlot = -1;
+  for(let j = 0; j < n; j++){
+    let slot = Math.round(j * (SPIN_TOTAL_FRAMES - 1) / (n - 1 || 1));
+    if(slot <= lastSlot) slot = lastSlot + 1;
+    if(slot > SPIN_TOTAL_FRAMES - 1) slot = SPIN_TOTAL_FRAMES - 1;
+    frames[slot] = urls[j];
+    lastSlot = slot;
+  }
+  return frames;
+}
+
+/* Decide el modo (ninguna foto / galeria simple / spin 360) y arma el
+   HTML. col?.Vista_360 es lo unico que controla si una coleccion puede
+   usar el modo spin — se activa marcando esa casilla en la pestaña
+   Colecciones de la Sheet, no hace falta tocar este archivo. */
+function mediaViewerHTML(item, col){
+  const urls = (item.URL_Imagenes || []).map(convertDriveUrl).filter(Boolean);
+
+  if(urls.length === 0){
+    const fallback = `<div class="w-full h-full flex items-center justify-center"><i data-lucide="${iconFor(col?.Icono)}" class="w-14 h-14 text-textfaint"></i></div>`;
+    return { imageHTML: fallback, controlsHTML: '', mode: 'none' };
+  }
+
+  const useSpin = !!col?.Vista_360 && urls.length >= SPIN_MIN_PHOTOS;
+
+  if(useSpin){
+    const frames = buildSpinFrames(urls);
+    const imgs = frames.map((url, idx) => url
+      ? `<img src="${url}" data-frame-index="${idx}" alt="${escapeHTML(item.Nombre)} — vista ${idx+1}/${SPIN_TOTAL_FRAMES}" class="spin-frame absolute inset-0 w-full h-full object-cover" style="opacity:${idx===0?1:0}" draggable="false">`
+      : ''
+    ).join('');
+    return {
+      imageHTML: `<div class="relative w-full h-full">${imgs}</div>`,
+      controlsHTML: `
+        <div class="px-6 md:px-7 pt-4">
+          <div id="spin-track" class="relative h-1 rounded-full bg-border cursor-pointer select-none" style="touch-action:none">
+            <div id="spin-handle" class="absolute top-1/2 w-4 h-4 rounded-full bg-text border-2 border-bg -translate-y-1/2 -translate-x-1/2 cursor-grab shadow" style="left:0%"></div>
+          </div>
+          <div class="text-center text-[0.72rem] text-textdim mt-2">Arrastrá para girar · <span id="spin-count">1</span>/${SPIN_TOTAL_FRAMES}</div>
+        </div>`,
+      mode: 'spin'
+    };
+  }
+
+  // Galeria simple: 1 o mas fotos, se pasan con flechas o puntitos.
+  const imgs = urls.map((url, idx) =>
+    `<img src="${url}" data-frame-index="${idx}" alt="${escapeHTML(item.Nombre)} — foto ${idx+1}/${urls.length}" class="gallery-frame absolute inset-0 w-full h-full object-cover" style="opacity:${idx===0?1:0}" draggable="false">`
+  ).join('');
+  const arrows = urls.length > 1 ? `
+    <button id="gallery-prev" type="button" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 rounded-full p-1.5 backdrop-blur-sm transition-colors"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+    <button id="gallery-next" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 rounded-full p-1.5 backdrop-blur-sm transition-colors"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>` : '';
+  const dots = urls.length > 1 ? `
+    <div class="flex flex-wrap justify-center gap-1.5 pt-4">
+      ${urls.map((_,idx) => `<button type="button" data-goto="${idx}" class="gallery-dot w-1.5 h-1.5 rounded-full" style="background:var(--accent); opacity:${idx===0?1:0.3}"></button>`).join('')}
+    </div>` : '';
+
+  return {
+    imageHTML: `<div class="relative w-full h-full">${imgs}</div>${arrows}`,
+    controlsHTML: dots,
+    mode: 'gallery'
+  };
+}
+
+/* Conecta los eventos del visor recien insertado en el modal.
+   Se llama despues de setear modal-body.innerHTML. */
+function bindMediaViewer(mode){
+  if(mode === 'spin'){
+    const track = $('#spin-track');
+    const handle = $('#spin-handle');
+    const countEl = $('#spin-count');
+    const frames = $$('.spin-frame');
+    let dragging = false;
+
+    const setFrame = (idx) => {
+      frames.forEach(img => { img.style.opacity = Number(img.dataset.frameIndex) === idx ? '1' : '0'; });
+      handle.style.left = `${(idx/(SPIN_TOTAL_FRAMES-1))*100}%`;
+      countEl.textContent = idx+1;
+    };
+    const posToIndex = (clientX) => {
+      const rect = track.getBoundingClientRect();
+      const ratio = rect.width ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
+      return Math.round(ratio * (SPIN_TOTAL_FRAMES - 1));
+    };
+    track.addEventListener('pointerdown', e => {
+      dragging = true;
+      if(track.setPointerCapture) track.setPointerCapture(e.pointerId);
+      setFrame(posToIndex(e.clientX));
+    });
+    track.addEventListener('pointermove', e => { if(dragging) setFrame(posToIndex(e.clientX)); });
+    track.addEventListener('pointerup', () => { dragging = false; });
+    track.addEventListener('pointercancel', () => { dragging = false; });
+  }
+  else if(mode === 'gallery'){
+    const frames = $$('.gallery-frame');
+    const dots = $$('.gallery-dot');
+    let current = 0;
+    const setFrame = (idx) => {
+      current = (idx + frames.length) % frames.length;
+      frames.forEach(img => { img.style.opacity = Number(img.dataset.frameIndex) === current ? '1' : '0'; });
+      dots.forEach((d,i) => { d.style.opacity = i === current ? '1' : '0.3'; });
+    };
+    $('#gallery-prev')?.addEventListener('click', () => setFrame(current - 1));
+    $('#gallery-next')?.addEventListener('click', () => setFrame(current + 1));
+    dots.forEach(d => d.addEventListener('click', () => setFrame(Number(d.dataset.goto))));
+  }
+}
+
+/* ============================================================
    MODAL DE DETALLE (con deep link vía URL hash)
    ============================================================ */
 function openModal(itemId){
@@ -729,19 +857,16 @@ function openModal(itemId){
   currentModalItemId = itemId;
   history.replaceState(null, '', `#item-${encodeURIComponent(itemId)}`);
 
-  const imgUrl = convertDriveUrl(item.URL_Imagen);
-  const fallback = `<div class="w-full h-full flex items-center justify-center"><i data-lucide="${iconFor(col?.Icono)}" class="w-14 h-14 text-textfaint"></i></div>`;
-  const visual = imgUrl
-    ? `<img src="${imgUrl}" alt="${escapeHTML(item.Nombre)}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML = ${JSON.stringify(fallback)};">`
-    : fallback;
+  const media = mediaViewerHTML(item, col);
 
   $('#modal-body').innerHTML = `
-    <div class="plate-glow aspect-video relative" style="--accent:${col?.Color || '#D4AF37'}">
-      ${visual}
+    <div class="plate-glow aspect-video relative overflow-hidden" style="--accent:${col?.Color || '#D4AF37'}">
+      ${media.imageHTML}
       <button id="modal-close" class="absolute top-3 right-3 bg-black/60 hover:bg-black/80 rounded-full p-2 backdrop-blur-sm transition-colors">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
+    ${media.controlsHTML}
     <div class="p-6 md:p-7">
       <div class="flex flex-wrap gap-2 mb-4">
         <span class="text-[0.72rem] px-2.5 py-1 rounded-full border ${estadoBadgeClass(item.Estado)}">${escapeHTML(item.Estado)}</span>
@@ -767,6 +892,7 @@ function openModal(itemId){
   $('#modal-overlay').classList.remove('opacity-0','pointer-events-none');
   $('#modal-panel').classList.remove('scale-95');
   lucide.createIcons();
+  bindMediaViewer(media.mode);
 
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-copy-link').addEventListener('click', copyDeepLink);
