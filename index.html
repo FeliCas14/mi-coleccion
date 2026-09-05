@@ -101,14 +101,19 @@
 </header>
 
 <!-- ================= HERO ================= -->
-<section id="inicio" class="min-h-[60vh] flex flex-col justify-center px-5 md:px-8 max-w-3xl fade-in">
-  <div class="text-sm text-textdim mb-4">Tu galería personal</div>
-  <h1 class="font-display font-bold text-[2.4rem] md:text-[4rem] leading-[1.05] max-w-[11ch]">
-    Cada pieza, en su lugar. Cada colección, su propia sala.
-  </h1>
-  <p class="mt-5 max-w-[46ch] text-[1.02rem] text-textdim">
-    Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés equipado y lo que estás esperando conseguir, colección por colección.
-  </p>
+<section id="inicio" class="min-h-[60vh] flex items-center px-5 md:px-8 fade-in">
+  <div class="grid md:grid-cols-2 gap-10 items-center w-full">
+    <div class="max-w-3xl">
+      <div class="text-sm text-textdim mb-4">Tu galería personal</div>
+      <h1 class="font-display font-bold text-[2.4rem] md:text-[4rem] leading-[1.05] max-w-[11ch]">
+        Cada pieza, en su lugar. Cada colección, su propia sala.
+      </h1>
+      <p class="mt-5 max-w-[46ch] text-[1.02rem] text-textdim">
+        Collection Hub reúne lo que coleccionás en un solo espacio: lo que ya tenés equipado y lo que estás esperando conseguir, colección por colección.
+      </p>
+    </div>
+    <div id="hero-visual" class="hidden md:flex flex-wrap items-center justify-center gap-6"></div>
+  </div>
 </section>
 
 <!-- ================= DASHBOARD DE ESTADÍSTICAS ================= -->
@@ -140,34 +145,51 @@
   </div>
 
   <!-- Barra de filtros: se muestra sólo en Grid / Wishlist -->
-  <div id="filter-bar" class="hidden flex-wrap gap-2.5 items-center mb-7 pb-6 border-b border-border">
-    <select id="filter-coleccion" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
-      <option value="">Colección</option>
-    </select>
-    <select id="filter-estado" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
-      <option value="">Estado</option>
-      <option value="Comprado">Comprado</option>
-      <option value="En Wishlist">En Wishlist</option>
-      <option value="Vendido">Vendido</option>
-      <option value="Regalado">Regalado</option>
-    </select>
-    <select id="filter-marca" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
-      <option value="">Marca</option>
-    </select>
-    <select id="filter-etiqueta" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
-      <option value="">Etiqueta</option>
-    </select>
-    <select id="filter-orden" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
-      <option value="nombre">Ordenar: Nombre</option>
-      <option value="fecha">Ordenar: Fecha</option>
-      <option value="prioridad">Ordenar: Prioridad</option>
-      <option value="precio">Ordenar: Precio</option>
-    </select>
+  <div id="filter-bar" class="hidden flex-wrap gap-3 items-end mb-7 pb-6 border-b border-border">
+    <div class="flex flex-col gap-1">
+      <label for="filter-coleccion" class="text-[0.7rem] text-textdim px-0.5">Colección</label>
+      <select id="filter-coleccion" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+        <option value=""></option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="filter-estado" class="text-[0.7rem] text-textdim px-0.5">Estado</label>
+      <select id="filter-estado" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+        <option value=""></option>
+        <option value="Comprado">Comprado</option>
+        <option value="En Wishlist">En Wishlist</option>
+        <option value="Vendido">Vendido</option>
+        <option value="Regalado">Regalado</option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="filter-marca" class="text-[0.7rem] text-textdim px-0.5">Marca</label>
+      <select id="filter-marca" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+        <option value=""></option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="filter-etiqueta" class="text-[0.7rem] text-textdim px-0.5">Etiqueta</label>
+      <select id="filter-etiqueta" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+        <option value=""></option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="filter-orden" class="text-[0.7rem] text-textdim px-0.5">Ordenar</label>
+      <select id="filter-orden" class="bg-surface border border-border text-text text-[0.82rem] rounded-lg px-3 py-2">
+        <option value="nombre">Nombre (A-Z)</option>
+        <option value="fecha_desc">Fecha: más reciente</option>
+        <option value="fecha_asc">Fecha: más antigua</option>
+        <option value="prioridad">Prioridad</option>
+        <option value="precio_desc">Precio: mayor a menor</option>
+        <option value="precio_asc">Precio: menor a mayor</option>
+      </select>
+    </div>
     <button id="share-view" type="button" title="Copiar un enlace a esta vista filtrada"
-            class="ml-auto flex items-center gap-1.5 text-[0.8rem] px-3 py-1.5 rounded-lg border border-border hover:border-textfaint transition-colors">
+            class="ml-auto self-end flex items-center gap-1.5 text-[0.8rem] px-3 py-2 rounded-lg border border-border hover:border-textfaint transition-colors">
       <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Compartir vista
     </button>
-    <span id="result-count" class="text-[0.8rem] text-textdim"></span>
+    <span id="result-count" class="self-end text-[0.8rem] text-textdim py-2"></span>
   </div>
 
   <div id="tab-content"></div>
@@ -510,9 +532,11 @@ function getFilteredItems({ forceWishlist=false } = {}){
 
   const sorters = {
     nombre: (a,b) => a.Nombre.localeCompare(b.Nombre),
-    fecha: (a,b) => new Date(b.Fecha_Agregado || 0) - new Date(a.Fecha_Agregado || 0),
+    fecha_desc: (a,b) => new Date(b.Fecha_Agregado || 0) - new Date(a.Fecha_Agregado || 0),
+    fecha_asc: (a,b) => new Date(a.Fecha_Agregado || 0) - new Date(b.Fecha_Agregado || 0),
     prioridad: (a,b) => (b.Prioridad||0) - (a.Prioridad||0),
-    precio: (a,b) => (b.Precio||0) - (a.Precio||0)
+    precio_desc: (a,b) => (b.Precio||0) - (a.Precio||0),
+    precio_asc: (a,b) => (a.Precio||0) - (b.Precio||0)
   };
   filtered.sort(sorters[ordenF] || sorters.nombre);
 
@@ -572,6 +596,24 @@ function renderActiveTab(){
 /* ============================================================
    PANEL DE ESTADÍSTICAS
    ============================================================ */
+/* Composición decorativa del hero: un "orbe" con el color e ícono real
+   de cada colección activa, para que el lado derecho del hero no quede
+   vacío. Se arma con datos reales, así que se actualiza sola si agregás
+   o cambiás colecciones. */
+function renderHeroVisual(){
+  const container = $('#hero-visual');
+  if(!container) return;
+  const activas = DATA.colecciones.filter(c => c.Activa);
+  if(activas.length === 0){ container.innerHTML = ''; return; }
+  container.innerHTML = activas.map((col, idx) => `
+    <div class="plate-glow flex flex-col items-center justify-center gap-2 rounded-full w-32 h-32 lg:w-36 lg:h-36 border border-border shrink-0"
+         style="--accent:${col.Color}; ${idx % 2 === 1 ? 'margin-top:2.5rem' : ''}">
+      <i data-lucide="${iconFor(col.Icono)}" class="w-7 h-7" style="color:var(--accent)"></i>
+      <span class="text-[0.72rem] text-textdim px-2 text-center truncate max-w-full">${escapeHTML(col.Nombre)}</span>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
 function renderStats(){
   const vendidosRegalados = DATA.items.filter(i => i.Estado === 'Vendido' || i.Estado === 'Regalado');
   const activosItems = DATA.items.filter(i => i.Estado !== 'Vendido' && i.Estado !== 'Regalado');
@@ -623,7 +665,7 @@ function renderStats(){
    ============================================================ */
 function populateFilterOptions(){
   const colSel = $('#filter-coleccion');
-  colSel.innerHTML = '<option value="">Colección</option>' +
+  colSel.innerHTML = '<option value=""></option>' +
     DATA.colecciones.map(c => `<option value="${escapeHTML(c.ID_Coleccion)}">${escapeHTML(c.Nombre)}</option>`).join('');
   updateDependentFilterOptions();
 }
@@ -635,13 +677,13 @@ function updateDependentFilterOptions(){
   const marcaSel = $('#filter-marca');
   const marcaPrevia = marcaSel.value;
   const marcas = [...new Set(relevantItems.map(i => i.Marca))].sort((a,b) => a.localeCompare(b));
-  marcaSel.innerHTML = '<option value="">Marca</option>' + marcas.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+  marcaSel.innerHTML = '<option value=""></option>' + marcas.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
   if(marcas.includes(marcaPrevia)) marcaSel.value = marcaPrevia;
 
   const etiquetaSel = $('#filter-etiqueta');
   const etiquetaPrevia = etiquetaSel.value;
   const etiquetas = [...new Set(relevantItems.flatMap(i => i.Etiquetas || []))].sort((a,b) => a.localeCompare(b));
-  etiquetaSel.innerHTML = '<option value="">Etiqueta</option>' + etiquetas.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
+  etiquetaSel.innerHTML = '<option value=""></option>' + etiquetas.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
   if(etiquetas.includes(etiquetaPrevia)) etiquetaSel.value = etiquetaPrevia;
 }
 
@@ -979,6 +1021,7 @@ async function boot(){
     ensureGeneralCollection();
     buildSearchIndex();
     renderStats();
+    renderHeroVisual();
     populateFilterOptions();
     const initialTab = applyFiltersFromURL();
     switchTab(initialTab);
