@@ -195,3 +195,5 @@ Cada vez que cambia la forma del payload conviene subir la versión de `CACHE_KE
 - El frontend pasó de secciones apiladas a **tabs** (Vitrina / Grid / Wishlist) con un panel de estadísticas colapsable arriba.
 - Se agregó un modal de detalle por ítem con **deep link** (`#item-ID_DEL_ITEM`) — podés compartir el link directo a una pieza.
 - La búsqueda ahora es difusa (tolera errores de tipeo y tildes) usando Fuse.js.
+- Los filtros de Grid/Wishlist ahora muestran una etiqueta arriba de cada casillero (en vez de texto adentro del select) y arrancan vacíos. El de "Ordenar" ahora tiene direcciones separadas para Fecha y Precio (más reciente/antigua, mayor/menor a menor/mayor) — esto es solo un cambio de `index.html`, no requiere tocar la Sheet ni `Code.gs`.
+- El hero de la portada tiene un elemento visual a la derecha (un "orbe" por cada colección activa, con su color e ícono real) para que no quede vacío en pantallas anchas.
